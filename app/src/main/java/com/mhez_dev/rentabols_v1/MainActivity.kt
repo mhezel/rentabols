@@ -61,17 +61,12 @@ class MainActivity : ComponentActivity() {
             Rentabolsv1Theme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val navController = rememberNavController()
-                    var startDestination by remember { mutableStateOf(Screen.Auth.route) }
-
-                    // Always start with Auth screen and clear any existing session
-                    LaunchedEffect(Unit) {
-                        FirebaseAuth.getInstance().signOut()
-                        startDestination = Screen.Auth.route
-                    }
-
+                    
+                    // Start with the splash screen, which will transition to onboarding,
+                    // then auth screens
                     RentabolsNavigation(
                         navController = navController,
-                        startDestination = startDestination,
+                        startDestination = Screen.Splash.route,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
