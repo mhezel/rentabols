@@ -9,4 +9,5 @@ interface AuthRepository {
     suspend fun signOut()
     fun getCurrentUser(): Flow<User?>
     suspend fun updateProfile(user: User): Result<Unit>
+    fun getUserById(userId: String): Flow<User?>
 }

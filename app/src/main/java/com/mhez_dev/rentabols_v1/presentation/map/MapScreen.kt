@@ -10,13 +10,17 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.firestore.GeoPoint
 import com.google.maps.android.compose.*
+import com.mhez_dev.rentabols_v1.ui.components.RentabolsBottomNavigation
 import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     onNavigateToItemDetails: (String) -> Unit,
-    onNavigateBack: () -> Unit,
+    onNavigateToHome: () -> Unit,
+    onNavigateToItems: () -> Unit,
+    onNavigateToProfile: () -> Unit,
+    currentRoute: String,
     viewModel: MapViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
@@ -36,10 +40,18 @@ fun MapScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Map View") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                title = { Text("Map View") }
+            )
+        },
+        bottomBar = {
+            RentabolsBottomNavigation(
+                currentRoute = currentRoute,
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> onNavigateToHome()
+                        "items" -> onNavigateToItems()
+                        "map" -> { /* Already on map */ }
+                        "profile" -> onNavigateToProfile()
                     }
                 }
             )

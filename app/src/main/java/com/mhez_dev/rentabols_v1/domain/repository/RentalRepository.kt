@@ -15,6 +15,7 @@ interface RentalRepository {
     fun getItem(itemId: String): Flow<RentalItem?>
     fun searchItems(query: String?, category: String?, location: GeoPoint?, radius: Double?): Flow<List<RentalItem>>
     fun getItems(searchQuery: String?, category: String?): Flow<List<RentalItem>>
+    fun getItemsByOwnerId(ownerId: String): Flow<List<RentalItem>>
     
     // Transaction Management
     suspend fun createRentalRequest(transaction: RentalTransaction): Result<String>

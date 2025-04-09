@@ -13,12 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.google.android.gms.maps.model.LatLng
-import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.auth.FirebaseAuth
 import com.mhez_dev.rentabols_v1.domain.model.RentalItem
 import com.mhez_dev.rentabols_v1.ui.components.CategoryDropdown
-import com.mhez_dev.rentabols_v1.ui.components.MapSelectionDialog
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsButton
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsTextField
 import org.koin.androidx.compose.koinViewModel
@@ -28,15 +25,36 @@ import org.koin.androidx.compose.koinViewModel
 fun AddItemScreen(
     onItemAdded: () -> Unit,
     onNavigateBack: () -> Unit,
-    viewModel: ItemDetailsViewModel = koinViewModel()
+    viewModel: AddItemViewModel = koinViewModel()
 ) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var pricePerDay by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
+    var isForPickup by remember { mutableStateOf(true) }
+    var isForDelivery by remember { mutableStateOf(false) }
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val state by viewModel.state.collectAsState()
+    
+    // Used to show snackbar messages
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Handle success or error states with a LaunchedEffect
+    LaunchedEffect(state) {
+        when(state) {
+            is AddItemState.Success -> {
+                onItemAdded()
+            }
+            is AddItemState.Error -> {
+                val errorMessage = (state as AddItemState.Error).message
+                snackbarHostState.showSnackbar(
+                    message = errorMessage,
+                    duration = SnackbarDuration.Long
+                )
+            }
+            else -> { /* No action needed for other states */ }
+        }
+    }
 
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
@@ -45,6 +63,7 @@ fun AddItemScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Add New Item") },
@@ -87,17 +106,48 @@ fun AddItemScreen(
                 onCategorySelected = { category = it },
                 modifier = Modifier.fillMaxWidth()
             )
-
-            RentabolsTextField(
-                value = address,
-                onValueChange = { address = it },
-                label = "Address"
-            )
+            
+            // Delivery options
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Availability Options",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isForPickup,
+                            onCheckedChange = { isForPickup = it }
+                        )
+                        Text("Available for pickup")
+                    }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isForDelivery,
+                            onCheckedChange = { isForDelivery = it }
+                        )
+                        Text("Available for delivery")
+                    }
+                }
+            }
 
             // Image Selection
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { imagePicker.launch("image/*") }
+                onClick = { 
+                    if (state !is AddItemState.Loading && state !is AddItemState.Uploading) {
+                        imagePicker.launch("image/*") 
+                    }
+                }
             ) {
                 Row(
                     modifier = Modifier
@@ -108,7 +158,7 @@ fun AddItemScreen(
                 ) {
                     Text(
                         text = if (selectedImages.isEmpty()) {
-                            "Add Images"
+                            "Add Images (Optional)"
                         } else {
                             "${selectedImages.size} images selected"
                         }
@@ -120,73 +170,89 @@ fun AddItemScreen(
                 }
             }
 
-            // Location Selection
-            var showLocationDialog by remember { mutableStateOf(false) }
-            
-            OutlinedCard(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = { showLocationDialog = true }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (state is AddItemState.Error) {
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (selectedLocation == null) {
-                            "Select Location"
-                        } else {
-                            "Location Selected (${selectedLocation?.latitude?.toFloat()}, ${selectedLocation?.longitude?.toFloat()})"
-                        }
-                    )
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = "Select Location"
+                        text = (state as AddItemState.Error).message,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(16.dp)
                     )
                 }
             }
 
-            if (showLocationDialog) {
-                MapSelectionDialog(
-                    onLocationSelected = { location ->
-                        selectedLocation = location
-                    },
-                    onDismiss = { showLocationDialog = false }
-                )
+            if (state is AddItemState.Uploading) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Uploading images: ${(state as AddItemState.Uploading).progress}%",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    LinearProgressIndicator(
+                        progress = (state as AddItemState.Uploading).progress / 100f,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            } else if (state is AddItemState.Loading) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Creating item...",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             RentabolsButton(
-                text = "Add Item",
-                onClick = {
-                    selectedLocation?.let { location ->
-                        val item = RentalItem(
-                            id = "",  // Will be set by Firebase
-                            ownerId = FirebaseAuth.getInstance().currentUser?.uid ?: "",
-                            title = title,
-                            description = description,
-                            category = category,
-                            pricePerDay = pricePerDay.toDoubleOrNull() ?: 0.0,
-                            location = GeoPoint(location.latitude, location.longitude),
-                            address = address,
-                            imageUrls = emptyList() // Will be updated after upload
-                        )
-                        // TODO: Upload images and create item
-                        onItemAdded()
-                    }
+                text = when(state) {
+                    is AddItemState.Loading -> "Creating Item..."
+                    is AddItemState.Uploading -> "Uploading Images..."
+                    else -> "Add Item"
                 },
-                enabled = title.isNotBlank() &&
-                        description.isNotBlank() &&
-                        pricePerDay.isNotBlank() &&
-                        pricePerDay.toDoubleOrNull() != null &&
-                        category.isNotBlank() &&
-                        address.isNotBlank() &&
-                        selectedLocation != null &&
-                        selectedImages.isNotEmpty() &&
-                        FirebaseAuth.getInstance().currentUser != null
+                onClick = {
+                    val priceValue = pricePerDay.toDoubleOrNull() ?: 0.0
+                    val metadata = mapOf(
+                        "isForPickup" to isForPickup,
+                        "isForDelivery" to isForDelivery
+                    )
+                    
+                    viewModel.createItem(
+                        title = title,
+                        description = description,
+                        category = category,
+                        pricePerDay = priceValue,
+                        images = selectedImages,
+                        metadata = metadata
+                    )
+                },
+                enabled = title.isNotBlank() && 
+                         description.isNotBlank() && 
+                         category.isNotBlank() && 
+                         pricePerDay.toDoubleOrNull() != null &&
+                         pricePerDay.toDoubleOrNull()!! > 0 &&
+                         state !is AddItemState.Loading &&
+                         state !is AddItemState.Uploading,
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }

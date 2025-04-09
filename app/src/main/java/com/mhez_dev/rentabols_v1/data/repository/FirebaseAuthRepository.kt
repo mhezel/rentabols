@@ -97,4 +97,22 @@ class FirebaseAuthRepository(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override fun getUserById(userId: String): Flow<User?> = callbackFlow {
+        val listenerRegistration = firestore.collection("users").document(userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(null)
+                    return@addSnapshotListener
+                }
+                
+                val user = snapshot?.toObject(User::class.java)
+                if (user != null) {
+                    user.id = userId
+                }
+                trySend(user)
+            }
+        
+        awaitClose { listenerRegistration.remove() }
+    }
 }

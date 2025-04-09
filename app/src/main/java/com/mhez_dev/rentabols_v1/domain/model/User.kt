@@ -23,5 +23,14 @@ data class User(
     val rating: Double = 0.0,
     
     @PropertyName("reviewCount")
-    val reviewCount: Int = 0
+    val reviewCount: Int = 0,
+    
+    @PropertyName("birthdate")
+    val birthdate: Long? = null,
+    
+    @PropertyName("gender")
+    val gender: String? = null,
+    
+    @PropertyName("location")
+    val location: String? = null
 )

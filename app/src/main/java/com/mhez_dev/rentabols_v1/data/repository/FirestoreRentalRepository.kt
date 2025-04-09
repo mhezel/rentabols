@@ -193,4 +193,23 @@ class FirestoreRentalRepository(
     } catch (e: Exception) {
         Result.failure(e)
     }
+
+    override fun getItemsByOwnerId(ownerId: String): Flow<List<RentalItem>> = callbackFlow {
+        val queryRef = firestore.collection("rental_items")
+            .whereEqualTo("ownerId", ownerId)
+        
+        val subscription = queryRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            
+            val items = snapshot?.documents?.mapNotNull { 
+                it.toObject(RentalItem::class.java)
+            } ?: emptyList()
+            
+            trySend(items)
+        }
+        awaitClose { subscription.remove() }
+    }
 }

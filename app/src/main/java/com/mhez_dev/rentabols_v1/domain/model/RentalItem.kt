@@ -45,5 +45,8 @@ data class RentalItem(
     val createdAt: Long = System.currentTimeMillis(),
 
     @PropertyName("searchKeywords")
-    val searchKeywords: List<String> = emptyList()
+    val searchKeywords: List<String> = emptyList(),
+    
+    @PropertyName("metadata")
+    val metadata: Map<String, Any> = mapOf()
 )

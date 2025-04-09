@@ -12,12 +12,15 @@ import androidx.navigation.navArgument
 import com.mhez_dev.rentabols_v1.presentation.auth.AuthScreen
 import com.mhez_dev.rentabols_v1.presentation.home.HomeScreen
 import com.mhez_dev.rentabols_v1.presentation.items.AddItemScreen
+import com.mhez_dev.rentabols_v1.presentation.items.EditItemScreen
 import com.mhez_dev.rentabols_v1.presentation.items.ItemDetailsScreen
 import com.mhez_dev.rentabols_v1.presentation.items.ItemsScreen
 import com.mhez_dev.rentabols_v1.presentation.map.MapScreen
 import com.mhez_dev.rentabols_v1.presentation.onboarding.OnboardingScreen
+import com.mhez_dev.rentabols_v1.presentation.profile.EditProfileScreen
 import com.mhez_dev.rentabols_v1.presentation.profile.ProfileScreen
 import com.mhez_dev.rentabols_v1.presentation.splash.SplashScreen
+import com.mhez_dev.rentabols_v1.presentation.profile.UserProfileScreen
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -111,6 +114,12 @@ fun RentabolsNavigation(
                 onNavigateToProfile = {
                     navController.navigate(Screen.Profile.route)
                 },
+                onNavigateToAddItem = {
+                    navController.navigate(Screen.AddItem.route)
+                },
+                onNavigateToEditItem = { itemId ->
+                    navController.navigate(Screen.EditItem.createRoute(itemId))
+                },
                 currentRoute = currentRoute
             )
         }
@@ -124,6 +133,27 @@ fun RentabolsNavigation(
             val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
             ItemDetailsScreen(
                 itemId = itemId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToUserProfile = { userId ->
+                    navController.navigate(Screen.UserProfile.createRoute(userId))
+                }
+            )
+        }
+        
+        composable(
+            route = Screen.EditItem.route,
+            arguments = listOf(
+                navArgument("itemId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+            EditItemScreen(
+                itemId = itemId,
+                onItemUpdated = {
+                    navController.popBackStack()
+                },
                 onNavigateBack = {
                     navController.popBackStack()
                 }
@@ -143,7 +173,18 @@ fun RentabolsNavigation(
                 onNavigateToMap = {
                     navController.navigate(Screen.Map.route)
                 },
+                onNavigateToEditProfile = {
+                    navController.navigate(Screen.EditProfile.route)
+                },
                 currentRoute = currentRoute
+            )
+        }
+
+        composable(Screen.EditProfile.route) {
+            EditProfileScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
             )
         }
 
@@ -174,6 +215,24 @@ fun RentabolsNavigation(
                 },
                 onNavigateBack = {
                     navController.popBackStack()
+                }
+            )
+        }
+
+        composable(
+            route = Screen.UserProfile.route,
+            arguments = listOf(
+                navArgument("userId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
+            UserProfileScreen(
+                userId = userId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToItemDetails = { itemId ->
+                    navController.navigate(Screen.ItemDetails.createRoute(itemId))
                 }
             )
         }

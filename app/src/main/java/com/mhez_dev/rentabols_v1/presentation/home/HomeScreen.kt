@@ -11,7 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import com.google.firebase.firestore.Query
+import com.mhez_dev.rentabols_v1.domain.model.RentalItem
+import com.mhez_dev.rentabols_v1.ui.components.CategoryDropdown
+import com.mhez_dev.rentabols_v1.ui.components.ItemCategory
+import com.mhez_dev.rentabols_v1.ui.components.RentabolsBottomNavigation
 import com.mhez_dev.rentabols_v1.ui.components.RentalItemCard
 import org.koin.androidx.compose.koinViewModel
 
@@ -22,48 +25,22 @@ fun HomeScreen(
     onNavigateToMap: () -> Unit,
     onNavigateToAddItem: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToItems: () -> Unit,
+    currentRoute: String,
     onSignOut: () -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
-    val state by viewModel.state.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
-    var showMenu by remember { mutableStateOf(false) }
+    val items: List<RentalItem> by viewModel.items.collectAsState()
+    var selectedCategory by remember { mutableStateOf("All Categories") }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Rentabols") },
                 actions = {
-                    IconButton(onClick = onNavigateToMap) {
-                        Icon(Icons.Default.LocationOn, contentDescription = "Map View")
-                    }
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.Person, contentDescription = "Profile")
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Profile") },
-                            onClick = {
-                                showMenu = false
-                                onNavigateToProfile()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Person, contentDescription = null)
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Sign Out") },
-                            onClick = {
-                                showMenu = false
-                                viewModel.signOut(onSignOut)
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.ExitToApp, contentDescription = null)
-                            }
-                        )
+                    IconButton(onClick = onSignOut) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Sign Out")
                     }
                 }
             )
@@ -74,6 +51,20 @@ fun HomeScreen(
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add Item")
             }
+        },
+        bottomBar = {
+            RentabolsBottomNavigation(
+                currentRoute = currentRoute,
+                onNavigate = { route ->
+                    when (route) {
+                        "home" -> { /* Already on home */ }
+                        "items" -> onNavigateToItems()
+                        "map" -> onNavigateToMap()
+                        "profile" -> onNavigateToProfile()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     ) { paddingValues ->
         Column(
@@ -90,49 +81,78 @@ fun HomeScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 placeholder = { Text("Search items...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true
-            )
-
-            // Content
-            when (state) {
-                is HomeState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-                is HomeState.Success -> {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        items(
-                            items = (state as HomeState.Success).items,
-                            key = { it.id }
-                        ) { item ->
-                            RentalItemCard(
-                                item = item,
-                                onClick = { onNavigateToItemDetails(item.id) }
-                            )
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = {
+                                searchQuery = ""
+                                viewModel.searchItems(null)
+                            }
+                        ) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
                         }
                     }
-                }
-                is HomeState.Error -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                },
+                singleLine = true
+            )
+            
+            // Category Filter
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CategoryDropdown(
+                    selectedCategory = selectedCategory,
+                    onCategorySelected = { category ->
+                        selectedCategory = category
+                        viewModel.filterByCategory(category)
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                
+                if (selectedCategory != "All Categories" || searchQuery.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            selectedCategory = "All Categories"
+                            searchQuery = ""
+                            viewModel.clearFilters()
+                        },
+                        modifier = Modifier.padding(start = 8.dp)
                     ) {
-                        Text(
-                            text = (state as HomeState.Error).message,
-                            color = MaterialTheme.colorScheme.error
+                        Text("Clear Filters")
+                    }
+                }
+            }
+
+            // Content
+            if (items.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("No items found")
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(
+                        items = items,
+                        key = { item: RentalItem -> item.id }
+                    ) { item ->
+                        RentalItemCard(
+                            item = item,
+                            onClick = { onNavigateToItemDetails(item.id) }
                         )
                     }
                 }

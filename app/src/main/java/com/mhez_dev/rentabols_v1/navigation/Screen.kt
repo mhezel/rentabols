@@ -9,7 +9,14 @@ sealed class Screen(val route: String) {
     object ItemDetails : Screen("item/{itemId}") {
         fun createRoute(itemId: String) = "item/$itemId"
     }
+    object EditItem : Screen("edit-item/{itemId}") {
+        fun createRoute(itemId: String) = "edit-item/$itemId"
+    }
     object Profile : Screen("profile")
+    object EditProfile : Screen("edit-profile")
+    object UserProfile : Screen("user-profile/{userId}") {
+        fun createRoute(userId: String) = "user-profile/$userId"
+    }
     object Map : Screen("map")
     object AddItem : Screen("add-item")
 }

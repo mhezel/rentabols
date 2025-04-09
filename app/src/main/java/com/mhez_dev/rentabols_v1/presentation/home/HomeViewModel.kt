@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.GeoPoint
 import com.mhez_dev.rentabols_v1.domain.model.RentalItem
 import com.mhez_dev.rentabols_v1.domain.repository.AuthRepository
+import com.mhez_dev.rentabols_v1.domain.repository.RentalRepository
 import com.mhez_dev.rentabols_v1.domain.usecase.rental.SearchRentalItemsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,61 +21,52 @@ sealed class HomeState {
 }
 
 class HomeViewModel(
-    private val searchRentalItemsUseCase: SearchRentalItemsUseCase,
-    private val authRepository: AuthRepository
+    private val rentalRepository: RentalRepository
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<HomeState>(HomeState.Loading)
-    val state: StateFlow<HomeState> = _state
-
-    private var currentQuery: String? = null
-    private var currentCategory: String? = null
-    private var currentLocation: GeoPoint? = null
-    private var currentRadius: Double? = null
+    private val _items = MutableStateFlow<List<RentalItem>>(emptyList())
+    val items: StateFlow<List<RentalItem>> = _items
+    
+    private val _currentSearchQuery = MutableStateFlow<String?>(null)
+    private val _currentCategory = MutableStateFlow<String?>(null)
 
     init {
-        // Start with an empty list instead of loading state
-        _state.value = HomeState.Success(emptyList())
+        loadItems()
     }
 
-    fun searchItems(
-        query: String? = currentQuery,
-        category: String? = currentCategory,
-        location: GeoPoint? = currentLocation,
-        radius: Double? = currentRadius
-    ) {
-        currentQuery = query
-        currentCategory = category
-        currentLocation = location
-        currentRadius = radius
-
-        searchRentalItemsUseCase(
-            query = query,
-            category = category,
-            location = location,
-            radius = radius
-        )
-            .onEach { items ->
-                _state.value = HomeState.Success(items)
-            }
-            .catch { e ->
-                _state.value = HomeState.Error(e.message ?: "Failed to load items")
-            }
-            .launchIn(viewModelScope)
-    }
-
-    fun updateCategory(category: String?) {
-        searchItems(category = category)
-    }
-
-    fun signOut(onSignOutComplete: () -> Unit) {
+    private fun loadItems() {
         viewModelScope.launch {
-            try {
-                authRepository.signOut()
-                onSignOutComplete()
-            } catch (e: Exception) {
-                _state.value = HomeState.Error("Failed to sign out: ${e.message}")
+            rentalRepository.getItems(null, null)
+                .collect { items ->
+                    _items.value = items
+                }
+        }
+    }
+
+    fun searchItems(query: String?) {
+        _currentSearchQuery.value = query
+        performSearch()
+    }
+    
+    fun filterByCategory(category: String?) {
+        _currentCategory.value = category
+        performSearch()
+    }
+    
+    private fun performSearch() {
+        viewModelScope.launch {
+            rentalRepository.getItems(
+                searchQuery = _currentSearchQuery.value,
+                category = _currentCategory.value
+            ).collect { items ->
+                _items.value = items
             }
         }
+    }
+    
+    fun clearFilters() {
+        _currentSearchQuery.value = null
+        _currentCategory.value = null
+        loadItems()
     }
 }
