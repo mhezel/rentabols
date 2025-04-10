@@ -59,8 +59,8 @@ val appModule = module {
     viewModel { HomeViewModel(get<RentalRepository>()) }
     viewModel { ItemDetailsViewModel(get(), get<RentalRepository>(), get<GetUserByIdUseCase>()) }
     viewModel { ProfileViewModel(get(), get(), get()) }
-    viewModel { MapViewModel(get()) }
-    viewModel { AddItemViewModel(get<RentalRepository>()) }
+    viewModel { MapViewModel(get<SearchRentalItemsUseCase>(), get<RentalRepository>()) }
+    viewModel { AddItemViewModel(get<RentalRepository>(), get<AuthRepository>()) }
     viewModel { ItemsViewModel(get<RentalRepository>()) }
     viewModel { OnboardingViewModel(get()) }
     viewModel { UserProfileViewModel(get<GetUserByIdUseCase>(), get<RentalRepository>()) }

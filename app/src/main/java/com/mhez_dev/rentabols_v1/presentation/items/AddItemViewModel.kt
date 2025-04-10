@@ -8,8 +8,10 @@ import com.google.firebase.firestore.GeoPoint
 import com.google.firebase.storage.FirebaseStorage
 import com.mhez_dev.rentabols_v1.domain.model.RentalItem
 import com.mhez_dev.rentabols_v1.domain.repository.RentalRepository
+import com.mhez_dev.rentabols_v1.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
@@ -23,7 +25,8 @@ sealed class AddItemState {
 }
 
 class AddItemViewModel(
-    private val rentalRepository: RentalRepository
+    private val rentalRepository: RentalRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val firebaseStorage = FirebaseStorage.getInstance()
@@ -36,16 +39,11 @@ class AddItemViewModel(
         category: String,
         pricePerDay: Double,
         images: List<Uri>,
-        metadata: Map<String, Any> = mapOf()
+        location: GeoPoint,
+        metadata: Map<String, Any>
     ) {
         if (title.isBlank() || description.isBlank() || category.isBlank() || pricePerDay <= 0) {
             _state.value = AddItemState.Error("Please fill in all required fields")
-            return
-        }
-
-        val userId = FirebaseAuth.getInstance().currentUser?.uid
-        if (userId == null) {
-            _state.value = AddItemState.Error("User not authenticated")
             return
         }
 
@@ -53,15 +51,21 @@ class AddItemViewModel(
 
         viewModelScope.launch {
             try {
+                val currentUser = authRepository.getCurrentUser().first()
+                if (currentUser == null) {
+                    _state.value = AddItemState.Error("User not authenticated")
+                    return@launch
+                }
+
                 // First, create the rental item without images
                 val item = RentalItem(
                     id = "",  // Will be set by Firebase
-                    ownerId = userId,
+                    ownerId = currentUser.id,
                     title = title,
                     description = description,
                     category = category,
                     pricePerDay = pricePerDay,
-                    location = GeoPoint(0.0, 0.0), // Default location
+                    location = location,
                     address = "", // Optional address
                     imageUrls = emptyList(), // Will be updated after upload
                     availability = true,
@@ -96,7 +100,7 @@ class AddItemViewModel(
                     val uri = images.first()
                     val imageRef = firebaseStorage.reference
                         .child("users")
-                        .child(userId)
+                        .child(currentUser.id)
                         .child("items")
                         .child(itemId)
                         .child("image_0.jpg")

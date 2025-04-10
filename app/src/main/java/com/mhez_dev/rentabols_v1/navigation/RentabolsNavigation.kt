@@ -16,6 +16,7 @@ import com.mhez_dev.rentabols_v1.presentation.items.EditItemScreen
 import com.mhez_dev.rentabols_v1.presentation.items.ItemDetailsScreen
 import com.mhez_dev.rentabols_v1.presentation.items.ItemsScreen
 import com.mhez_dev.rentabols_v1.presentation.map.MapScreen
+import com.mhez_dev.rentabols_v1.presentation.map.FullScreenMapScreen
 import com.mhez_dev.rentabols_v1.presentation.onboarding.OnboardingScreen
 import com.mhez_dev.rentabols_v1.presentation.profile.EditProfileScreen
 import com.mhez_dev.rentabols_v1.presentation.profile.ProfileScreen
@@ -138,6 +139,9 @@ fun RentabolsNavigation(
                 },
                 onNavigateToUserProfile = { userId ->
                     navController.navigate(Screen.UserProfile.createRoute(userId))
+                },
+                onNavigateToFullScreenMap = { itemId ->
+                    navController.navigate(Screen.FullScreenMap.createRoute(itemId))
                 }
             )
         }
@@ -233,6 +237,21 @@ fun RentabolsNavigation(
                 },
                 onNavigateToItemDetails = { itemId ->
                     navController.navigate(Screen.ItemDetails.createRoute(itemId))
+                }
+            )
+        }
+        
+        composable(
+            route = Screen.FullScreenMap.route,
+            arguments = listOf(
+                navArgument("itemId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId") ?: return@composable
+            FullScreenMapScreen(
+                itemId = itemId,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

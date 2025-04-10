@@ -1,5 +1,8 @@
 package com.mhez_dev.rentabols_v1.presentation.items
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -7,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.OpenInFull
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,6 +26,11 @@ import com.mhez_dev.rentabols_v1.ui.components.RentabolsButton
 import org.koin.androidx.compose.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.*
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.*
+import com.google.firebase.firestore.GeoPoint
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +38,7 @@ fun ItemDetailsScreen(
     itemId: String,
     onNavigateBack: () -> Unit,
     onNavigateToUserProfile: (String) -> Unit,
+    onNavigateToFullScreenMap: (String) -> Unit = {},
     viewModel: ItemDetailsViewModel = koinViewModel()
 ) {
     val item by viewModel.item.collectAsState()
@@ -47,6 +57,15 @@ fun ItemDetailsScreen(
     // Contact seller dialog
     var showContactDialog by remember { mutableStateOf(false) }
     var contactMessage by remember { mutableStateOf("") }
+    
+    // Add camera position state for the mini-map
+    val itemLocation = item?.location?.let { 
+        LatLng(it.latitude, it.longitude) 
+    } ?: LatLng(6.9214, 122.0790) // Default to Zamboanga if no location
+    
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(itemLocation, 15f)
+    }
     
     LaunchedEffect(key1 = itemId) {
         viewModel.getItemDetails(itemId)
@@ -363,7 +382,7 @@ fun ItemDetailsScreen(
                                 .data(ownerProfilePic)
                                 .crossfade(true)
                                 .build(),
-                            contentDescription = "Seller profile picture",
+                            contentDescription = "Lender profile picture",
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape),
@@ -376,11 +395,11 @@ fun ItemDetailsScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                text = ownerName ?: "Unknown Seller",
+                                text = ownerName ?: "Unknown Lender",
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = "View seller profile",
+                                text = "View lender profile",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary
                             )
@@ -391,7 +410,7 @@ fun ItemDetailsScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Email,
-                                contentDescription = "Contact Seller"
+                                contentDescription = "Contact Lender"
                             )
                         }
                     }
@@ -487,9 +506,92 @@ fun ItemDetailsScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
+                        text = "Item Location: ",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
                         text = item?.address ?: "No location specified",
                         style = MaterialTheme.typography.bodyMedium
                     )
+                }
+
+                // Add mini-map
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        GoogleMap(
+                            modifier = Modifier.fillMaxSize(),
+                            cameraPositionState = cameraPositionState,
+                            properties = MapProperties(
+                                isMyLocationEnabled = true,
+                                maxZoomPreference = 20f,
+                                minZoomPreference = 5f
+                            ),
+                            uiSettings = MapUiSettings(
+                                compassEnabled = true,
+                                zoomControlsEnabled = true
+                            )
+                        ) {
+                            // Add marker for Zamboanga City center
+                            val zamboanga = LatLng(6.9214, 122.0790)
+                            
+                            // City marker
+                            Marker(
+                                state = MarkerState(position = zamboanga),
+                                title = "Zamboanga City",
+                                snippet = "City Center"
+                            )
+                            
+                            // Show item location marker if different from Zamboanga center
+                            if (itemLocation != zamboanga) {
+                                Marker(
+                                    state = MarkerState(position = itemLocation),
+                                    title = item?.title ?: "Item Location",
+                                    snippet = "Item Location: ${item?.address ?: "No address specified"}"
+                                )
+                            }
+                        }
+                        
+                        // Add a button to open full map
+                        FloatingActionButton(
+                            onClick = {
+                                onNavigateToFullScreenMap(itemId)
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.OpenInFull,
+                                contentDescription = "Open in full map"
+                            )
+                        }
+                        
+                        // Add a button to center on item location
+                        FloatingActionButton(
+                            onClick = {
+                                cameraPositionState.position = CameraPosition.fromLatLngZoom(
+                                    itemLocation,
+                                    15f
+                                )
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = "Center on Item Location"
+                            )
+                        }
+                    }
                 }
 
                 if (item?.rating != null && item?.rating!! > 0) {
@@ -590,4 +692,9 @@ fun ItemDetailsScreen(
             }
         }
     }
+}
+
+private fun formatDate(timestamp: Long): String {
+    val date = Date(timestamp)
+    return SimpleDateFormat("MMM dd", Locale.getDefault()).format(date)
 }

@@ -13,9 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.maps.model.LatLng
 import com.google.firebase.firestore.GeoPoint
 import com.mhez_dev.rentabols_v1.domain.model.RentalItem
 import com.mhez_dev.rentabols_v1.ui.components.CategoryDropdown
+import com.mhez_dev.rentabols_v1.ui.components.MapSelectionDialog
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsButton
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsTextField
 import org.koin.androidx.compose.koinViewModel
@@ -46,6 +48,8 @@ fun EditItemScreen(
     var isForPickup by remember { mutableStateOf(true) }
     var isForDelivery by remember { mutableStateOf(false) }
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
+    var showMapDialog by remember { mutableStateOf(false) }
     
     // Availability dates
     var availableFrom by remember { mutableStateOf<Long?>(null) }
@@ -68,6 +72,8 @@ fun EditItemScreen(
             // Availability options
             isForPickup = it.metadata["isForPickup"] as? Boolean ?: true
             isForDelivery = it.metadata["isForDelivery"] as? Boolean ?: false
+            // Set location
+            selectedLocation = LatLng(it.location.latitude, it.location.longitude)
         }
     }
     
@@ -266,6 +272,41 @@ fun EditItemScreen(
                 }
             }
 
+            // Location Selection
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { showMapDialog = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Location",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (selectedLocation != null) {
+                                "Location selected"
+                            } else {
+                                "Tap to select location"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Select Location"
+                    )
+                }
+            }
+
             // Image Selection
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -375,11 +416,16 @@ fun EditItemScreen(
                             true
                         }
                         
+                        val location = selectedLocation?.let { latLng ->
+                            GeoPoint(latLng.latitude, latLng.longitude)
+                        } ?: it.location
+                        
                         val updatedItem = it.copy(
                             title = title,
                             description = description,
                             category = category,
                             pricePerDay = priceValue,
+                            location = location,
                             metadata = metadata
                         )
                         
@@ -429,10 +475,21 @@ fun EditItemScreen(
                          category.isNotBlank() && 
                          pricePerDay.toDoubleOrNull() != null &&
                          pricePerDay.toDoubleOrNull()!! > 0 &&
+                         selectedLocation != null &&
                          editState !is EditItemState.Loading &&
                          editState !is EditItemState.Uploading,
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+
+    if (showMapDialog) {
+        MapSelectionDialog(
+            onLocationSelected = { latLng ->
+                selectedLocation = latLng
+                showMapDialog = false
+            },
+            onDismiss = { showMapDialog = false }
+        )
     }
 } 

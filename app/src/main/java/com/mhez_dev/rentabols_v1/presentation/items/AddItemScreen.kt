@@ -19,6 +19,9 @@ import com.mhez_dev.rentabols_v1.ui.components.CategoryDropdown
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsButton
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsTextField
 import org.koin.androidx.compose.koinViewModel
+import com.google.android.gms.maps.model.LatLng
+import com.google.firebase.firestore.GeoPoint
+import com.mhez_dev.rentabols_v1.ui.components.MapSelectionDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +37,8 @@ fun AddItemScreen(
     var isForPickup by remember { mutableStateOf(true) }
     var isForDelivery by remember { mutableStateOf(false) }
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
+    var showMapDialog by remember { mutableStateOf(false) }
     val state by viewModel.state.collectAsState()
     
     // Used to show snackbar messages
@@ -140,6 +145,41 @@ fun AddItemScreen(
                 }
             }
 
+            // Location Selection
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { showMapDialog = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Location",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (selectedLocation != null) {
+                                "Location selected"
+                            } else {
+                                "Tap to select location"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "Select Location"
+                    )
+                }
+            }
+
             // Image Selection
             OutlinedCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -236,12 +276,17 @@ fun AddItemScreen(
                         "isForDelivery" to isForDelivery
                     )
                     
+                    val location = selectedLocation?.let { 
+                        GeoPoint(it.latitude, it.longitude)
+                    } ?: GeoPoint(0.0, 0.0)
+                    
                     viewModel.createItem(
                         title = title,
                         description = description,
                         category = category,
                         pricePerDay = priceValue,
                         images = selectedImages,
+                        location = location,
                         metadata = metadata
                     )
                 },
@@ -250,10 +295,21 @@ fun AddItemScreen(
                          category.isNotBlank() && 
                          pricePerDay.toDoubleOrNull() != null &&
                          pricePerDay.toDoubleOrNull()!! > 0 &&
+                         selectedLocation != null &&
                          state !is AddItemState.Loading &&
                          state !is AddItemState.Uploading,
                 modifier = Modifier.fillMaxWidth()
             )
         }
+    }
+
+    if (showMapDialog) {
+        MapSelectionDialog(
+            onLocationSelected = { latLng ->
+                selectedLocation = latLng
+                showMapDialog = false
+            },
+            onDismiss = { showMapDialog = false }
+        )
     }
 }
