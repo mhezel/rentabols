@@ -7,6 +7,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.mhez_dev.rentabols_v1.domain.model.RentalTransaction
 import com.mhez_dev.rentabols_v1.domain.model.User
 import com.mhez_dev.rentabols_v1.domain.usecase.auth.GetCurrentUserUseCase
+import com.mhez_dev.rentabols_v1.domain.usecase.auth.SignOutUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.auth.UpdateProfileUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.rental.GetUserTransactionsUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,17 +23,22 @@ data class ProfileState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val isUpdating: Boolean = false,
-    val updateSuccess: Boolean = false
+    val updateSuccess: Boolean = false,
+    val isSigningOut: Boolean = false
 )
 
 class ProfileViewModel(
     private val getCurrentUserUseCase: GetCurrentUserUseCase,
     private val getUserTransactionsUseCase: GetUserTransactionsUseCase,
-    private val updateProfileUseCase: UpdateProfileUseCase
+    private val updateProfileUseCase: UpdateProfileUseCase,
+    private val signOutUseCase: SignOutUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(ProfileState(isLoading = true))
     val state: StateFlow<ProfileState> = _state
+    
+    private val _isSignedOut = MutableStateFlow(false)
+    val isSignedOut: StateFlow<Boolean> = _isSignedOut
 
     init {
         loadUserData()
@@ -156,5 +162,29 @@ class ProfileViewModel(
             updateSuccess = false,
             error = null
         )
+    }
+
+    fun signOut() {
+        // First set the state for UI update
+        _state.value = _state.value.copy(isSigningOut = true)
+        _isSignedOut.value = false
+        
+        // Launch coroutine for sign-out 
+        viewModelScope.launch {
+            try {
+                // Call sign out use case
+                signOutUseCase()
+                
+                // Clear the current state after signing out
+                _state.value = ProfileState(isSigningOut = false)
+                
+                // Set signed out flag to true
+                _isSignedOut.value = true
+            } catch (e: Exception) {
+                // In case of error, reset the signing out state
+                _state.value = _state.value.copy(isSigningOut = false, error = "Failed to sign out")
+                _isSignedOut.value = false
+            }
+        }
     }
 }

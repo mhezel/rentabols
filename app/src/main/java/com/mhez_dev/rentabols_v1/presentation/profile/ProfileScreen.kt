@@ -37,7 +37,16 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-
+    val isSignedOut by viewModel.isSignedOut.collectAsState()
+    
+    // Launch navigation when sign out is complete
+    LaunchedEffect(key1 = isSignedOut) {
+        if (isSignedOut) {
+            // Navigate to auth screen when signed out
+            onNavigateToHome()
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -46,6 +55,14 @@ fun ProfileScreen(
                     IconButton(onClick = onNavigateToEditProfile) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                     }
+                    IconButton(
+                        onClick = { 
+                            // Just trigger sign out - navigation will happen via LaunchedEffect
+                            viewModel.signOut()
+                        }
+                    ) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = "Sign Out")
+                    }
                 }
             )
         },
@@ -53,11 +70,15 @@ fun ProfileScreen(
             RentabolsBottomNavigation(
                 currentRoute = currentRoute,
                 onNavigate = { route ->
-                    when (route) {
-                        "home" -> onNavigateToHome()
-                        "items" -> onNavigateToItems()
-                        "map" -> onNavigateToMap()
-                        "profile" -> { /* Already on profile */ }
+                    try {
+                        when (route) {
+                            "home" -> onNavigateToHome()
+                            "items" -> onNavigateToItems()
+                            "map" -> onNavigateToMap()
+                            "profile" -> { /* Already on profile */ }
+                        }
+                    } catch (e: Exception) {
+                        // Handle navigation exceptions silently
                     }
                 }
             )

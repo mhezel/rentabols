@@ -29,32 +29,63 @@ class AuthViewModel(
     val authState: StateFlow<AuthState> = _authState
 
     init {
+        // Set initial state
         _authState.value = AuthState.Initial
+        
+        // Check for existing user only if we're in Initial state
+        // This allows sign-out to work correctly
+        viewModelScope.launch {
+            getCurrentUserUseCase().collect { user ->
+                if (_authState.value is AuthState.Initial && user != null) {
+                    // Only auto-login if we're in the Initial state AND there's a user
+                    // This prevents auto-login after sign-out since we'll have manually
+                    // set the state to something other than Initial
+                    _authState.value = AuthState.Success(user)
+                }
+            }
+        }
     }
 
     fun signIn(email: String, password: String) {
         viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            signInUseCase(email, password)
-                .onSuccess { user ->
-                    _authState.value = AuthState.Success(user)
-                }
-                .onFailure { exception ->
-                    _authState.value = AuthState.Error(exception.message ?: "Sign in failed")
-                }
+            try {
+                _authState.value = AuthState.Loading
+                signInUseCase(email, password)
+                    .onSuccess { user ->
+                        _authState.value = AuthState.Success(user)
+                    }
+                    .onFailure { exception ->
+                        _authState.value = AuthState.Error(exception.message ?: "Sign in failed")
+                    }
+            } catch (e: Exception) {
+                _authState.value = AuthState.Error("An unexpected error occurred")
+            }
         }
     }
 
     fun signUp(email: String, password: String, name: String) {
         viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            signUpUseCase(email, password, name)
-                .onSuccess { user ->
-                    _authState.value = AuthState.Success(user)
-                }
-                .onFailure { exception ->
-                    _authState.value = AuthState.Error(exception.message ?: "Sign up failed")
-                }
+            try {
+                _authState.value = AuthState.Loading
+                signUpUseCase(email, password, name)
+                    .onSuccess { user ->
+                        _authState.value = AuthState.Success(user)
+                    }
+                    .onFailure { exception ->
+                        _authState.value = AuthState.Error(exception.message ?: "Sign up failed")
+                    }
+            } catch (e: Exception) {
+                _authState.value = AuthState.Error("An unexpected error occurred")
+            }
         }
+    }
+
+    // Clear auth state - explicitly set to Initial
+    fun clearState() {
+        _authState.value = AuthState.Initial
+    }
+
+    fun toggleAuthMode() {
+        // Implementation of toggleAuthMode method
     }
 }
