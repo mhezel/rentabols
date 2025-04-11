@@ -18,19 +18,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.firebase.firestore.GeoPoint
+import com.google.maps.android.compose.*
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsButton
 import org.koin.androidx.compose.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.*
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
-import com.google.firebase.firestore.GeoPoint
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +47,19 @@ fun ItemDetailsScreen(
     val ownerProfilePic by viewModel.ownerProfilePic.collectAsState()
     val requestState by viewModel.requestState.collectAsState()
     
+    // Check availability status
+    val isAvailable = remember(item) {
+        val availableFrom = item?.metadata?.get("availableFrom") as? Long
+        val availableTo = item?.metadata?.get("availableTo") as? Long
+        
+        when {
+            availableFrom == null && availableTo == null -> false // No dates set, item is on hold
+            availableFrom != null && System.currentTimeMillis() < availableFrom -> false // Not yet available
+            availableTo != null && System.currentTimeMillis() > availableTo -> false // No longer available
+            else -> true // Available
+        }
+    }
+    
     var showDatePicker by remember { mutableStateOf(false) }
     var isStartDateSelection by remember { mutableStateOf(true) }
     var startDate by remember { mutableStateOf<Long?>(null) }
@@ -53,6 +67,14 @@ fun ItemDetailsScreen(
     
     var showOfferDialog by remember { mutableStateOf(false) }
     var offerAmount by remember { mutableStateOf("") }
+    
+    // New states for offer dialog
+    var offerStartDate by remember { mutableStateOf<Long?>(null) }
+    var offerEndDate by remember { mutableStateOf<Long?>(null) }
+    var offerDatePickerVisible by remember { mutableStateOf(false) }
+    var isOfferStartDateSelection by remember { mutableStateOf(true) }
+    var offerDeliveryOption by remember { mutableStateOf<String?>(null) }
+    var showOfferSummary by remember { mutableStateOf(false) }
     
     // Contact seller dialog
     var showContactDialog by remember { mutableStateOf(false) }
@@ -138,6 +160,197 @@ fun ItemDetailsScreen(
         }
     }
 
+    if (offerDatePickerVisible) {
+        // Initialize datePickerState with a sensible initial value
+        val initialDateMillis = when {
+            isOfferStartDateSelection -> item?.metadata?.get("availableFrom") as? Long
+                ?: System.currentTimeMillis()
+            else -> offerStartDate ?: System.currentTimeMillis()
+        }
+        
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialDateMillis
+        )
+        
+        // Get availability constraints from item metadata
+        val availableFrom = item?.metadata?.get("availableFrom") as? Long
+        val availableTo = item?.metadata?.get("availableTo") as? Long
+        
+        DatePickerDialog(
+            onDismissRequest = { offerDatePickerVisible = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val selectedDateMillis = datePickerState.selectedDateMillis
+                    if (selectedDateMillis != null) {
+                        if (isOfferStartDateSelection) {
+                            offerStartDate = selectedDateMillis
+                            // If only selecting start date, also move to end date selection
+                            isOfferStartDateSelection = false
+                            offerDatePickerVisible = true // Keep dialog open but switch to end date
+                        } else {
+                            offerEndDate = selectedDateMillis
+                            offerDatePickerVisible = false
+                        }
+                    } else {
+                        offerDatePickerVisible = false
+                    }
+                }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { offerDatePickerVisible = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState,
+                dateValidator = { timestamp -> 
+                    val start = offerStartDate
+                    val fromDate = availableFrom
+                    val toDate = availableTo
+                    when {
+                        isOfferStartDateSelection && fromDate != null -> 
+                            timestamp >= fromDate
+                        isOfferStartDateSelection && toDate != null -> 
+                            timestamp <= toDate
+                        !isOfferStartDateSelection && start != null -> 
+                            timestamp >= start
+                        !isOfferStartDateSelection && toDate != null -> 
+                            timestamp <= toDate
+                        else -> true
+                    }
+                }
+            )
+        }
+    }
+
+    // Offer Summary Dialog
+    if (showOfferSummary) {
+        AlertDialog(
+            onDismissRequest = { showOfferSummary = false },
+            title = { Text("Offer Summary") },
+            text = {
+                Column {
+                    Text(
+                        text = "Review Your Offer",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Item details
+                    Text(
+                        text = item?.title ?: "",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Price details
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Your Offer:")
+                        Text(
+                            "₱${offerAmount}/day",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Calculate total days and price
+                    if (offerStartDate != null && offerEndDate != null) {
+                        val days = ((offerEndDate!! - offerStartDate!!) / (1000 * 60 * 60 * 24)).toInt() + 1
+                        val totalPrice = days * (offerAmount.toDoubleOrNull() ?: 0.0)
+                        
+                        // Rental period
+                        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                        Text(
+                            text = "Rental Period:",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = "${dateFormat.format(Date(offerStartDate!!))} to ${dateFormat.format(Date(offerEndDate!!))}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        // Total days and price
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Total Rental Days:")
+                            Text("$days days")
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Total Price:")
+                            Text(
+                                "₱${String.format("%.2f", totalPrice)}",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Delivery option
+                    Text(
+                        text = "Preferred Collection Method:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = offerDeliveryOption ?: "Not specified",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "By submitting this offer, you agree to the terms and conditions of Rentabols.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        // TODO: Handle offer submission logic
+                        showOfferSummary = false
+                        showOfferDialog = false
+                    }
+                ) {
+                    Text("Submit Offer")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        // Go back to edit the offer
+                        showOfferSummary = false
+                    }
+                ) {
+                    Text("Edit")
+                }
+            }
+        )
+    }
+
     if (showOfferDialog) {
         AlertDialog(
             onDismissRequest = { showOfferDialog = false },
@@ -146,6 +359,8 @@ fun ItemDetailsScreen(
                 Column {
                     Text("Current price: ₱${item?.pricePerDay}/day")
                     Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Offer amount
                     TextField(
                         value = offerAmount,
                         onValueChange = { offerAmount = it },
@@ -153,16 +368,140 @@ fun ItemDetailsScreen(
                         prefix = { Text("₱") },
                         modifier = Modifier.fillMaxWidth()
                     )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Date selection
+                    Text(
+                        text = "Select Rental Period",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Start Date", style = MaterialTheme.typography.bodySmall)
+                            TextButton(
+                                onClick = { 
+                                    isOfferStartDateSelection = true
+                                    offerDatePickerVisible = true
+                                }
+                            ) {
+                                Text(
+                                    offerStartDate?.let { 
+                                        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(it))
+                                    } ?: "Select Date"
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("End Date", style = MaterialTheme.typography.bodySmall)
+                            TextButton(
+                                onClick = { 
+                                    isOfferStartDateSelection = false
+                                    offerDatePickerVisible = true
+                                }
+                            ) {
+                                Text(
+                                    offerEndDate?.let { 
+                                        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(it))
+                                    } ?: "Select Date"
+                                )
+                            }
+                        }
+                    }
+                    
+                    // Show calculated price if dates are selected
+                    if (offerStartDate != null && offerEndDate != null && offerAmount.isNotEmpty()) {
+                        val days = ((offerEndDate!! - offerStartDate!!) / (1000 * 60 * 60 * 24)).toInt() + 1
+                        val totalPrice = days * (offerAmount.toDoubleOrNull() ?: 0.0)
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Divider()
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Total for $days days:")
+                            Text(
+                                "₱${String.format("%.2f", totalPrice)}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Pickup/delivery selection
+                    Text(
+                        text = "Collection Method",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Get available methods
+                    val isForPickup = item?.metadata?.get("isForPickup") as? Boolean ?: true
+                    val isForDelivery = item?.metadata?.get("isForDelivery") as? Boolean ?: false
+                    
+                    Column {
+                        if (isForPickup) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { offerDeliveryOption = "Pickup" }
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                RadioButton(
+                                    selected = offerDeliveryOption == "Pickup",
+                                    onClick = { offerDeliveryOption = "Pickup" }
+                                )
+                                Text("Pickup", Modifier.padding(start = 8.dp))
+                            }
+                        }
+                        
+                        if (isForDelivery) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { offerDeliveryOption = "Delivery" }
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                RadioButton(
+                                    selected = offerDeliveryOption == "Delivery",
+                                    onClick = { offerDeliveryOption = "Delivery" }
+                                )
+                                Text("Delivery", Modifier.padding(start = 8.dp))
+                            }
+                        }
+                    }
                 }
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // TODO: Handle the offer submission
-                        showOfferDialog = false
-                    }
+                        // Proceed to summary screen
+                        if (offerAmount.isNotEmpty() && offerStartDate != null && 
+                            offerEndDate != null && offerDeliveryOption != null) {
+                            showOfferSummary = true
+                        }
+                    },
+                    enabled = offerAmount.isNotEmpty() && offerStartDate != null && 
+                             offerEndDate != null && offerDeliveryOption != null
                 ) {
-                    Text("Submit Offer")
+                    Text("Review Offer")
                 }
             },
             dismissButton = {
@@ -432,6 +771,27 @@ fun ItemDetailsScreen(
                         
                         Spacer(modifier = Modifier.height(8.dp))
                         
+                        // Show availability status first
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (isAvailable) Icons.Default.Check else Icons.Default.Error, 
+                                contentDescription = null,
+                                tint = if (isAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isAvailable) "Available" else "On Hold",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
                         // Display availability dates if set
                         val availableFrom = item?.metadata?.get("availableFrom") as? Long
                         val availableTo = item?.metadata?.get("availableTo") as? Long
@@ -621,12 +981,15 @@ fun ItemDetailsScreen(
 
                 // Action buttons
                 RentabolsButton(
-                    text = "Rent it Now",
+                    text = if (isAvailable) "Rent it Now" else "Not Available",
                     onClick = {
                         // Open contact dialog to proceed with rental
-                        showContactDialog = true
+                        if (isAvailable) {
+                            showContactDialog = true
+                        }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = isAvailable
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -637,7 +1000,8 @@ fun ItemDetailsScreen(
                 ) {
                     OutlinedButton(
                         onClick = { showOfferDialog = true },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        enabled = isAvailable
                     ) {
                         Text("Make Offer")
                     }
@@ -660,6 +1024,37 @@ fun ItemDetailsScreen(
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Wishlist")
                         }
+                    }
+                }
+
+                // Show availability explanation if not available
+                if (!isAvailable) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        val availableFrom = item?.metadata?.get("availableFrom") as? Long
+                        val availableTo = item?.metadata?.get("availableTo") as? Long
+                        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                        
+                        val message = when {
+                            availableFrom == null && availableTo == null -> 
+                                "This item is currently on hold. Rental dates have not been set by the owner."
+                            availableFrom != null && System.currentTimeMillis() < availableFrom ->
+                                "This item will be available from ${dateFormat.format(Date(availableFrom))}."
+                            availableTo != null && System.currentTimeMillis() > availableTo ->
+                                "This item is no longer available as of ${dateFormat.format(Date(availableTo))}."
+                            else -> "This item is not available for rental at this time."
+                        }
+                        
+                        Text(
+                            text = message,
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
                     }
                 }
 
