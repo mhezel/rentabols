@@ -75,6 +75,7 @@ fun ItemDetailsScreen(
     var isOfferStartDateSelection by remember { mutableStateOf(true) }
     var offerDeliveryOption by remember { mutableStateOf<String?>(null) }
     var showOfferSummary by remember { mutableStateOf(false) }
+    var offerMessage by remember { mutableStateOf("") }
     
     // Contact seller dialog
     var showContactDialog by remember { mutableStateOf(false) }
@@ -318,6 +319,19 @@ fun ItemDetailsScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     
+                    // Show message if provided
+                    if (offerMessage.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Your Message:",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            text = offerMessage,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Text(
@@ -487,6 +501,26 @@ fun ItemDetailsScreen(
                             }
                         }
                     }
+                    
+                    // Additional message to seller
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "Additional Message to Seller (Optional)",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    OutlinedTextField(
+                        value = offerMessage,
+                        onValueChange = { offerMessage = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
+                        placeholder = { Text("Enter your message to the seller") },
+                        maxLines = 5
+                    )
                 }
             },
             confirmButton = {
