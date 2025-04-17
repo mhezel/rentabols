@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
@@ -89,6 +90,13 @@ fun ItemDetailsScreen(
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(itemLocation, 15f)
     }
+    
+    // Success notification dialog
+    val showSuccessDialog = remember { mutableStateOf(false) }
+    
+    // Error notification dialog
+    val showErrorDialog = remember { mutableStateOf(false) }
+    val errorMessage = remember { mutableStateOf("") }
     
     LaunchedEffect(key1 = itemId) {
         viewModel.getItemDetails(itemId)
@@ -227,6 +235,95 @@ fun ItemDetailsScreen(
         }
     }
 
+    // Success notification dialog
+    if (showSuccessDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showSuccessDialog.value = false },
+            icon = { 
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
+                ) 
+            },
+            title = { 
+                Text(
+                    text = "Success!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) 
+            },
+            text = { 
+                Text(
+                    text = "Offer Request Submitted",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) 
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showSuccessDialog.value = false }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+    
+    if (showErrorDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog.value = false },
+            icon = { 
+                Icon(
+                    imageVector = Icons.Default.Error,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(48.dp)
+                ) 
+            },
+            title = { 
+                Text(
+                    text = "Cannot Submit Offer",
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) 
+            },
+            text = { 
+                Text(
+                    text = errorMessage.value,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) 
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { showErrorDialog.value = false }
+                ) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
+    // Handle state changes
+    LaunchedEffect(requestState) {
+        when (requestState) {
+            is RentalRequestState.Success -> {
+                showSuccessDialog.value = true
+            }
+            is RentalRequestState.Error -> {
+                errorMessage.value = (requestState as RentalRequestState.Error).message
+                showErrorDialog.value = true
+            }
+            else -> {}
+        }
+    }
+
     // Offer Summary Dialog
     if (showOfferSummary) {
         AlertDialog(
@@ -320,7 +417,7 @@ fun ItemDetailsScreen(
                     )
                     
                     // Show message if provided
-                    if (offerMessage.isNotEmpty()) {
+                    if (offerMessage.isNotBlank()) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "Your Message:",
@@ -344,9 +441,23 @@ fun ItemDetailsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // TODO: Handle offer submission logic
-                        showOfferSummary = false
-                        showOfferDialog = false
+                        // Handle offer submission logic
+                        offerStartDate?.let { start ->
+                            offerEndDate?.let { end ->
+                                val offerPriceValue = offerAmount.toDoubleOrNull()
+                                
+                                // Use the same createRentalRequest method to submit the offer
+                                viewModel.createRentalRequest(
+                                    startDate = start,
+                                    endDate = end,
+                                    offerPrice = offerPriceValue,
+                                    deliveryOption = offerDeliveryOption,
+                                    message = offerMessage
+                                )
+                                showOfferSummary = false
+                                showOfferDialog = false
+                            }
+                        }
                     }
                 ) {
                     Text("Submit Offer")
@@ -645,7 +756,6 @@ fun ItemDetailsScreen(
                         startDate?.let { start ->
                             endDate?.let { end ->
                                 viewModel.createRentalRequest(
-                                    renterId = "current_user_id", // TODO: Get actual user ID
                                     startDate = start,
                                     endDate = end
                                 )

@@ -29,5 +29,8 @@ data class RentalTransaction(
     val status: RentalStatus = RentalStatus.PENDING,
     
     @PropertyName("createdAt")
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    
+    @PropertyName("metadata")
+    val metadata: Map<String, Any> = emptyMap()
 )

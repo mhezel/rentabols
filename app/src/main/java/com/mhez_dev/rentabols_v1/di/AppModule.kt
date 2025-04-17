@@ -13,6 +13,7 @@ import com.mhez_dev.rentabols_v1.domain.usecase.auth.GetUserByIdUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.auth.SignInUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.auth.SignUpUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.auth.UpdateProfileUseCase
+import com.mhez_dev.rentabols_v1.domain.usecase.auth.SignOutUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.rental.*
 import com.mhez_dev.rentabols_v1.presentation.auth.AuthViewModel
 import com.mhez_dev.rentabols_v1.presentation.home.HomeViewModel
@@ -20,6 +21,7 @@ import com.mhez_dev.rentabols_v1.presentation.items.AddItemViewModel
 import com.mhez_dev.rentabols_v1.presentation.items.ItemDetailsViewModel
 import com.mhez_dev.rentabols_v1.presentation.items.ItemsViewModel
 import com.mhez_dev.rentabols_v1.presentation.map.MapViewModel
+import com.mhez_dev.rentabols_v1.presentation.offers.OfferRequestsViewModel
 import com.mhez_dev.rentabols_v1.presentation.onboarding.OnboardingViewModel
 import com.mhez_dev.rentabols_v1.presentation.profile.ProfileViewModel
 import com.mhez_dev.rentabols_v1.presentation.profile.UserProfileViewModel
@@ -46,6 +48,7 @@ val appModule = module {
     single { GetCurrentUserUseCase(get()) }
     single { GetUserByIdUseCase(get()) }
     single { UpdateProfileUseCase(get()) }
+    single { SignOutUseCase(get()) }
     
     // Rental Use Cases
     single { CreateRentalItemUseCase(get()) }
@@ -53,15 +56,19 @@ val appModule = module {
     single { GetRentalItemsUseCase(get()) }
     single { CreateRentalRequestUseCase(get()) }
     single { GetUserTransactionsUseCase(get()) }
+    single { GetUserLendingTransactionsUseCase(get()) }
+    single { UpdateTransactionStatusUseCase(get()) }
     
     // ViewModels
     viewModel { AuthViewModel(get(), get(), get()) }
     viewModel { HomeViewModel(get<RentalRepository>()) }
-    viewModel { ItemDetailsViewModel(get(), get<RentalRepository>(), get<GetUserByIdUseCase>()) }
-    viewModel { ProfileViewModel(get(), get(), get()) }
+    viewModel { ItemDetailsViewModel(get(), get<RentalRepository>(), get<GetUserByIdUseCase>(), get<GetCurrentUserUseCase>(), get()) }
+    viewModel { ProfileViewModel(get(), get(), get(), get<SignOutUseCase>()) }
     viewModel { MapViewModel(get<SearchRentalItemsUseCase>(), get<RentalRepository>()) }
     viewModel { AddItemViewModel(get<RentalRepository>(), get<AuthRepository>()) }
     viewModel { ItemsViewModel(get<RentalRepository>()) }
     viewModel { OnboardingViewModel(get()) }
     viewModel { UserProfileViewModel(get<GetUserByIdUseCase>(), get<RentalRepository>()) }
+    viewModel { OfferRequestsViewModel(get<RentalRepository>(), get()) }
+    viewModel { com.mhez_dev.rentabols_v1.presentation.profile.RentTransactionsViewModel(get(), get(), get(), get(), get<GetUserByIdUseCase>()) }
 }

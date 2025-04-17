@@ -115,6 +115,16 @@ class FirestoreRentalRepository(
         }
     }
 
+    override suspend fun getItemById(itemId: String): RentalItem? = try {
+        val snapshot = firestore.collection("rental_items")
+            .document(itemId)
+            .get()
+            .await()
+        snapshot.toObject(RentalItem::class.java)
+    } catch (e: Exception) {
+        null
+    }
+
     override fun searchItems(
         query: String?,
         category: String?,
@@ -152,27 +162,61 @@ class FirestoreRentalRepository(
         Result.failure(e)
     }
 
-    override fun getLenderTransactions(userId: String): Flow<List<RentalTransaction>> = flow {
+    override fun getLenderTransactions(userId: String): Flow<List<RentalTransaction>> = callbackFlow {
         try {
-            val snapshot = firestore.collection("rental_transactions")
+            val queryRef = firestore.collection("rental_transactions")
                 .whereEqualTo("lenderId", userId)
-                .get()
-                .await()
-            emit(snapshot.toObjects(RentalTransaction::class.java))
+            
+            val subscription = queryRef.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                
+                val transactions = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val transaction = doc.toObject(RentalTransaction::class.java)
+                        transaction?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+                
+                trySend(transactions)
+            }
+            
+            awaitClose { subscription.remove() }
         } catch (e: Exception) {
-            throw e
+            close(e)
         }
     }
 
-    override fun getRenterTransactions(userId: String): Flow<List<RentalTransaction>> = flow {
+    override fun getRenterTransactions(userId: String): Flow<List<RentalTransaction>> = callbackFlow {
         try {
-            val snapshot = firestore.collection("rental_transactions")
+            val queryRef = firestore.collection("rental_transactions")
                 .whereEqualTo("renterId", userId)
-                .get()
-                .await()
-            emit(snapshot.toObjects(RentalTransaction::class.java))
+            
+            val subscription = queryRef.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                
+                val transactions = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val transaction = doc.toObject(RentalTransaction::class.java)
+                        transaction?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+                
+                trySend(transactions)
+            }
+            
+            awaitClose { subscription.remove() }
         } catch (e: Exception) {
-            throw e
+            close(e)
         }
     }
 
@@ -211,5 +255,50 @@ class FirestoreRentalRepository(
             trySend(items)
         }
         awaitClose { subscription.remove() }
+    }
+
+    override suspend fun updateTransaction(transaction: RentalTransaction): Result<Unit> = try {
+        firestore.collection("rental_transactions")
+            .document(transaction.id)
+            .set(transaction)
+            .await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override fun getLendingTransactionsForUser(userId: String): Flow<List<RentalTransaction>> = callbackFlow {
+        try {
+            // Get transactions where user is the lender
+            val query = firestore.collection("rental_transactions")
+                .whereEqualTo("lenderId", userId)
+                .whereIn("status", listOf(
+                    RentalStatus.APPROVED.name,
+                    RentalStatus.IN_PROGRESS.name,
+                    RentalStatus.COMPLETED.name
+                ))
+            
+            val subscription = query.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                    return@addSnapshotListener
+                }
+                
+                val transactions = snapshot?.documents?.mapNotNull { doc ->
+                    try {
+                        val transaction = doc.toObject(RentalTransaction::class.java)
+                        transaction?.copy(id = doc.id)
+                    } catch (e: Exception) {
+                        null
+                    }
+                } ?: emptyList()
+                
+                trySend(transactions)
+            }
+            
+            awaitClose { subscription.remove() }
+        } catch (e: Exception) {
+            close(e)
+        }
     }
 }

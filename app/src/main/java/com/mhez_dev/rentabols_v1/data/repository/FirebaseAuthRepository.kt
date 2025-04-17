@@ -6,6 +6,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.mhez_dev.rentabols_v1.domain.model.User
 import com.mhez_dev.rentabols_v1.domain.repository.AuthRepository
 import kotlinx.coroutines.*
@@ -19,6 +20,9 @@ class FirebaseAuthRepository(
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore
 ) : AuthRepository {
+
+    // Keep track of all active Firestore listeners
+    private val listeners = mutableListOf<ListenerRegistration>()
 
     override suspend fun signIn(email: String, password: String): Result<User> = try {
         withTimeout(30000) { // 30 seconds timeout
@@ -69,13 +73,34 @@ class FirebaseAuthRepository(
     }
 
     override suspend fun signOut() {
-        auth.signOut()
+        try {
+            // Ensure we're on a background thread
+            withContext(Dispatchers.IO) {
+                // First, detach all Firestore listeners to prevent permission errors
+                synchronized(listeners) {
+                    listeners.forEach { listener ->
+                        try {
+                            listener.remove()
+                        } catch (e: Exception) {
+                            // Ignore removal errors
+                        }
+                    }
+                    listeners.clear()
+                }
+                
+                // Then sign out from Firebase Auth
+                auth.signOut()
+            }
+        } catch (e: Exception) {
+            // Log the error but don't throw to prevent app crashes
+            e.printStackTrace()
+        }
     }
 
     override fun getCurrentUser(): Flow<User?> = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { firebaseAuth ->
             firebaseAuth.currentUser?.let { firebaseUser ->
-                firestore.collection("users").document(firebaseUser.uid)
+                val listenerRegistration = firestore.collection("users").document(firebaseUser.uid)
                     .addSnapshotListener { snapshot, error ->
                         if (error != null) {
                             trySend(null)
@@ -85,10 +110,25 @@ class FirebaseAuthRepository(
                         user?.id = firebaseUser.uid
                         trySend(user)
                     }
+                
+                // Track this listener
+                synchronized(listeners) {
+                    listeners.add(listenerRegistration)
+                }
             } ?: trySend(null)
         }
+        
         auth.addAuthStateListener(listener)
-        awaitClose { auth.removeAuthStateListener(listener) }
+        
+        awaitClose { 
+            auth.removeAuthStateListener(listener)
+            
+            // Also clean up any lingering Firestore listeners
+            synchronized(listeners) {
+                listeners.forEach { it.remove() }
+                listeners.clear()
+            }
+        }
     }
 
     override suspend fun updateProfile(user: User): Result<Unit> = try {
@@ -113,6 +153,18 @@ class FirebaseAuthRepository(
                 trySend(user)
             }
         
-        awaitClose { listenerRegistration.remove() }
+        // Track this listener
+        synchronized(listeners) {
+            listeners.add(listenerRegistration)
+        }
+        
+        awaitClose { 
+            listenerRegistration.remove()
+            
+            // Remove from tracked listeners
+            synchronized(listeners) {
+                listeners.remove(listenerRegistration)
+            }
+        }
     }
 }

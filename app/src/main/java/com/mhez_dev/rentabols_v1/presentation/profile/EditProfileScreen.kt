@@ -36,20 +36,18 @@ fun EditProfileScreen(
     viewModel: ProfileViewModel = koinViewModel()
 ) {
     val state by viewModel.state.collectAsState()
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     
     var name by remember { mutableStateOf(state.user?.name ?: "") }
+    var fullName by remember { mutableStateOf(state.user?.fullName ?: "") }
+    var email by remember { mutableStateOf(state.user?.email ?: "") }
     var phoneNumber by remember { mutableStateOf(state.user?.phoneNumber ?: "") }
     var location by remember { mutableStateOf(state.user?.location ?: "") }
     var gender by remember { mutableStateOf(state.user?.gender ?: "") }
     var birthdate by remember { mutableStateOf(state.user?.birthdate) }
 
     var showDatePicker by remember { mutableStateOf(false) }
-    
-    val genderOptions = listOf("Male", "Female", "Other", "Prefer not to say")
-    var expanded by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
     
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -74,10 +72,38 @@ fun EditProfileScreen(
     LaunchedEffect(state.user) {
         state.user?.let { user ->
             name = user.name
+            fullName = user.fullName ?: ""
+            email = user.email
             phoneNumber = user.phoneNumber ?: ""
             location = user.location ?: ""
             gender = user.gender ?: ""
             birthdate = user.birthdate
+        }
+    }
+
+    // Date picker dialog
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = birthdate ?: System.currentTimeMillis()
+        )
+        
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    birthdate = datePickerState.selectedDateMillis
+                    showDatePicker = false
+                }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 
@@ -91,19 +117,21 @@ fun EditProfileScreen(
                     }
                 },
                 actions = {
-                    IconButton(
+                    TextButton(
                         onClick = {
                             viewModel.updateProfile(
                                 name = name,
+                                fullName = fullName,
                                 phoneNumber = phoneNumber,
                                 location = location,
                                 gender = gender,
                                 birthdate = birthdate
                             )
+                            onNavigateBack()
                         },
                         enabled = !state.isUpdating
                     ) {
-                        Icon(Icons.Default.Check, contentDescription = "Save")
+                        Text("Save", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             )
@@ -127,78 +155,139 @@ fun EditProfileScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 16.dp)
         ) {
             // Profile Image
             Box(
                 modifier = Modifier
-                    .size(150.dp)
-                    .padding(8.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { imagePicker.launch("image/*") },
+                    .padding(vertical = 24.dp)
+                    .align(Alignment.CenterHorizontally),
                 contentAlignment = Alignment.Center
             ) {
                 SubcomposeAsyncImage(
                     model = state.user?.profileImageUrl,
                     contentDescription = "Profile Picture",
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(CircleShape)
+                        .clickable { imagePicker.launch("image/*") },
                     contentScale = ContentScale.Crop,
                     loading = {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(40.dp)
+                        )
                     },
                     error = {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
+                        Box(
                             modifier = Modifier
-                                .size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                modifier = Modifier.size(50.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 )
                 
-                if (state.isUpdating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center)
+                // Camera icon for changing photo
+                IconButton(
+                    onClick = { imagePicker.launch("image/*") },
+                    modifier = Modifier
+                        .size(32.dp)
+                        .align(Alignment.BottomEnd)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoCamera,
+                        contentDescription = "Change photo",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
+            // Profile Information Form with clean, modern style
+            Text(
+                text = "Profile Name",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             
-            OutlinedButton(
-                onClick = { imagePicker.launch("image/*") }
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = null
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Change Photo")
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Profile Information Form
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Name") },
+                placeholder = { Text("Enter your name") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = MaterialTheme.shapes.medium
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
+            Text(
+                text = "Full Name",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            OutlinedTextField(
+                value = fullName,
+                onValueChange = { fullName = it },
+                placeholder = { Text("Enter your full name") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = MaterialTheme.shapes.medium
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = "Email",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                placeholder = { Text("Enter your email") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = MaterialTheme.shapes.medium,
+                enabled = false // Email typically can't be changed
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Phone Number
+            Text(
+                text = "Phone Number",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
             OutlinedTextField(
                 value = phoneNumber,
                 onValueChange = { phoneNumber = it },
-                label = { Text("Phone Number") },
+                placeholder = { Text("Enter your phone number") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = MaterialTheme.shapes.medium,
                 leadingIcon = {
                     Icon(Icons.Default.Phone, contentDescription = null)
                 }
@@ -206,12 +295,22 @@ fun EditProfileScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
+            // Location
+            Text(
+                text = "Location",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
             OutlinedTextField(
                 value = location,
                 onValueChange = { location = it },
-                label = { Text("Location") },
+                placeholder = { Text("Enter your location") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = MaterialTheme.shapes.medium,
                 leadingIcon = {
                     Icon(Icons.Default.LocationOn, contentDescription = null)
                 }
@@ -219,132 +318,89 @@ fun EditProfileScreen(
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Gender selection dropdown
-            ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = it },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                OutlinedTextField(
-                    value = gender,
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Gender") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor()
-                )
-                
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    genderOptions.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(option) },
-                            onClick = {
-                                gender = option
-                                expanded = false
-                            }
-                        )
-                    }
+            // Gender
+            Text(
+                text = "Gender",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            OutlinedTextField(
+                value = gender,
+                onValueChange = { gender = it },
+                placeholder = { Text("Enter your gender") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = MaterialTheme.shapes.medium,
+                leadingIcon = {
+                    Icon(Icons.Default.Person, contentDescription = null)
                 }
-            }
+            )
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Birthdate selection
+            // Birthdate
+            Text(
+                text = "Birthdate",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
             OutlinedTextField(
                 value = birthdate?.let { 
-                    SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(it))
+                    SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(it)) 
                 } ?: "",
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Birthdate") },
-                modifier = Modifier.fillMaxWidth(),
+                onValueChange = { },
+                placeholder = { Text("Select your birthdate") },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp)
+                    .clickable { showDatePicker = true },
+                shape = MaterialTheme.shapes.medium,
+                enabled = false,
                 leadingIcon = {
                     Icon(Icons.Default.DateRange, contentDescription = null)
                 },
                 trailingIcon = {
                     IconButton(onClick = { showDatePicker = true }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Select Date")
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Date")
                     }
                 }
             )
             
             Spacer(modifier = Modifier.height(16.dp))
             
-            // Read-only email field
+            Text(
+                text = "Password",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
             OutlinedTextField(
-                value = state.user?.email ?: "",
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Email") },
+                value = "•••••••",
+                onValueChange = { },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.Email, contentDescription = null)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                shape = MaterialTheme.shapes.medium,
+                enabled = false, // Password field is just a placeholder
+                trailingIcon = {
+                    TextButton(onClick = { /* Show change password flow */ }) {
+                        Text(
+                            "Change Password?",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                 }
             )
             
+            // Add some bottom padding
             Spacer(modifier = Modifier.height(32.dp))
-            
-            Button(
-                onClick = {
-                    viewModel.updateProfile(
-                        name = name,
-                        phoneNumber = phoneNumber,
-                        location = location,
-                        gender = gender,
-                        birthdate = birthdate
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !state.isUpdating
-            ) {
-                if (state.isUpdating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text("Save Profile")
-            }
-        }
-    }
-    
-    // Date picker dialog
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = birthdate ?: System.currentTimeMillis()
-        )
-        
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let {
-                            birthdate = it
-                        }
-                        showDatePicker = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Cancel")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
         }
     }
 } 

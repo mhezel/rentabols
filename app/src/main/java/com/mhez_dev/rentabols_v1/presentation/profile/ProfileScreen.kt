@@ -33,6 +33,8 @@ fun ProfileScreen(
     onNavigateToItems: () -> Unit,
     onNavigateToMap: () -> Unit,
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToOfferRequests: () -> Unit,
+    onNavigateToRentTransactions: () -> Unit,
     currentRoute: String,
     viewModel: ProfileViewModel = koinViewModel()
 ) {
@@ -56,10 +58,7 @@ fun ProfileScreen(
                         Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
                     }
                     IconButton(
-                        onClick = { 
-                            // Just trigger sign out - navigation will happen via LaunchedEffect
-                            viewModel.signOut()
-                        }
+                        onClick = { viewModel.signOut() }
                     ) {
                         Icon(Icons.Default.ExitToApp, contentDescription = "Sign Out")
                     }
@@ -100,479 +99,247 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .padding(horizontal = 16.dp)
         ) {
-            // User Profile Section
+            // Simple profile header with circular avatar and name/email
+            item {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Profile picture
+                    Box(
+                        modifier = Modifier.padding(bottom = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SubcomposeAsyncImage(
+                            model = state.user?.profileImageUrl,
+                            contentDescription = "Profile Picture",
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop,
+                            loading = {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(40.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            error = {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        )
+                    }
+
+                    // User's email only
+                    Text(
+                        text = state.user?.email ?: "",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            
+            // Personal Information Section
             item {
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(vertical = 8.dp),
                     shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .padding(24.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(150.dp)
-                                .padding(8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            // Profile picture with circular border
-                            SubcomposeAsyncImage(
-                                model = state.user?.profileImageUrl,
-                                contentDescription = "Profile Picture",
-                                modifier = Modifier
-                                    .size(140.dp)
-                                    .clip(CircleShape)
-                                    .border(4.dp, MaterialTheme.colorScheme.primary, CircleShape),
-                                contentScale = ContentScale.Crop,
-                                loading = {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.align(Alignment.Center),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                },
-                                error = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Person,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(64.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
                         Text(
-                            text = state.user?.name ?: "",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold
+                            text = "Personal Information",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = state.user?.email ?: "",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
-                        if (state.user?.rating != null && state.user?.rating!! > 0) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                                )
-                            ) {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = "Your Rating",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        // Display the actual star icons based on rating
-                                        val rating = state.user?.rating ?: 0.0
-                                        val displayRating = rating.toInt()
-                                        
-                                        repeat(displayRating) {
-                                            Icon(
-                                                imageVector = Icons.Default.Star,
-                                                contentDescription = null,
-                                                tint = Color(0xFFFFD700), // Gold color
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                        
-                                        // Empty stars to fill up to 5
-                                        repeat(5 - displayRating) {
-                                            Icon(
-                                                imageVector = Icons.Default.Star,
-                                                contentDescription = null,
-                                                tint = Color(0x66FFD700), // Semi-transparent gold
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    
-                                    Text(
-                                        text = "${String.format("%.1f", state.user?.rating)} (${state.user?.reviewCount} reviews)",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
-                            }
-                        }
                         
-                        // Personal information card
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp)
-                            ) {
-                                Text(
-                                    text = "Personal Information",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(bottom = 8.dp)
-                                )
-                                
-                                state.user?.phoneNumber?.let { phone ->
-                                    if (phone.isNotBlank()) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Phone,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Text(
-                                                text = phone,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-                                }
-                                
-                                state.user?.location?.let { location ->
-                                    if (location.isNotBlank()) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.LocationOn,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Text(
-                                                text = location,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-                                }
-                                
-                                state.user?.gender?.let { gender ->
-                                    if (gender.isNotBlank()) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(vertical = 8.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Person,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Text(
-                                                text = gender,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-                                }
-                                
-                                state.user?.birthdate?.let { birthdate ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(vertical = 8.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.DateRange,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Text(
-                                            text = SimpleDateFormat(
-                                                "MMM dd, yyyy", 
-                                                Locale.getDefault()
-                                            ).format(Date(birthdate)),
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Edit profile button
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Button(
-                            onClick = onNavigateToEditProfile,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = null
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Edit Profile")
-                        }
-                    }
-                }
-            }
-
-            // Transactions Section
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Transactions",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        }
-                        
-                        Card(
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primary
-                            )
-                        ) {
-                            Text(
-                                text = "${state.transactions.size}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (state.transactions.isEmpty()) {
-                item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(150.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "You don't have any transactions yet",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-            } else {
-                items(state.transactions) { transaction ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                        // Phone number
+                        state.user?.phoneNumber?.let { phone ->
+                            if (phone.isNotBlank()) {
                                 Row(
-                                    verticalAlignment = Alignment.CenterVertically
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 12.dp)
                                 ) {
                                     Icon(
-                                        imageVector = if (transaction.lenderId == state.user?.id) 
-                                            Icons.Default.Person else Icons.Default.AccountCircle,
+                                        imageVector = Icons.Default.Phone,
                                         contentDescription = null,
-                                        tint = if (transaction.lenderId == state.user?.id)
-                                            MaterialTheme.colorScheme.tertiary
-                                        else
-                                            MaterialTheme.colorScheme.primary,
+                                        tint = MaterialTheme.colorScheme.primary,
                                         modifier = Modifier.size(24.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(16.dp))
                                     Text(
-                                        text = when {
-                                            transaction.lenderId == state.user?.id -> "Lent Item"
-                                            else -> "Rented Item"
-                                        },
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
+                                        text = phone,
+                                        style = MaterialTheme.typography.bodyLarge
                                     )
                                 }
-                                
-                                Text(
-                                    text = "₱${transaction.totalPrice}",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.Bold
+                            }
+                        }
+                        
+                        // Location
+                        state.user?.location?.let { location ->
+                            if (location.isNotBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(
+                                        text = location,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Gender
+                        state.user?.gender?.let { gender ->
+                            if (gender.isNotBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(
+                                        text = gender,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Birthdate
+                        state.user?.birthdate?.let { birthdate ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(vertical = 12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(24.dp)
                                 )
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            Divider()
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Status indicator
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Card(
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = when (transaction.status) {
-                                            RentalStatus.COMPLETED -> Color(0xFF4CAF50)
-                                            RentalStatus.PENDING -> Color(0xFFFFA000)
-                                            RentalStatus.CANCELLED -> Color(0xFFF44336)
-                                            else -> MaterialTheme.colorScheme.surfaceVariant
-                                        }
-                                    ),
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Text(
-                                        text = transaction.status.toString(),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Date information
-                            Row(
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = "From",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = formatDate(transaction.startDate),
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                                
-                                Column(
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = "To",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Text(
-                                        text = formatDate(transaction.endDate),
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = SimpleDateFormat(
+                                        "MMM dd, yyyy", 
+                                        Locale.getDefault()
+                                    ).format(Date(birthdate)),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
                             }
                         }
                     }
                 }
             }
-            
-            // Add some space at the bottom
+
+            // Action buttons
             item {
-                Spacer(modifier = Modifier.height(16.dp))
+                // // Edit Profile Button
+                // ElevatedButton(
+                //     onClick = onNavigateToEditProfile,
+                //     modifier = Modifier
+                //         .fillMaxWidth()
+                //         .padding(vertical = 8.dp)
+                //         .height(56.dp),
+                //     colors = ButtonDefaults.elevatedButtonColors(
+                //         containerColor = MaterialTheme.colorScheme.primary
+                //     )
+                // ) {
+                //     Icon(
+                //         imageVector = Icons.Default.Edit,
+                //         contentDescription = null
+                //     )
+                //     Spacer(modifier = Modifier.width(8.dp))
+                //     Text(
+                //         text = "Edit Profile",
+                //         style = MaterialTheme.typography.bodyLarge
+                //     )
+                // }
+                
+                // View Offer Requests Button
+                OutlinedButton(
+                    onClick = onNavigateToOfferRequests,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .height(56.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Inbox,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "View Offer Requests",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                
+                // My Rent Transactions Button
+                OutlinedButton(
+                    onClick = onNavigateToRentTransactions,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                        .height(56.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalShipping,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "My Items to Lend",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White
+                    )
+                }
             }
         }
     }

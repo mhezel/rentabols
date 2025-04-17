@@ -56,6 +56,16 @@ class FirebaseRentalRepository(
         awaitClose { subscription.remove() }
     }
 
+    override suspend fun getItemById(itemId: String): RentalItem? = try {
+        val snapshot = firestore.collection(ITEMS_COLLECTION)
+            .document(itemId)
+            .get()
+            .await()
+        snapshot.toObject(RentalItem::class.java)
+    } catch (e: Exception) {
+        null
+    }
+
     override fun getItems(searchQuery: String?, category: String?): Flow<List<RentalItem>> = callbackFlow {
         var queryRef = firestore.collection(ITEMS_COLLECTION)
             .whereEqualTo("availability", true)
@@ -204,6 +214,40 @@ class FirebaseRentalRepository(
             } ?: emptyList()
             
             trySend(items)
+        }
+        awaitClose { subscription.remove() }
+    }
+
+    override suspend fun updateTransaction(transaction: RentalTransaction): Result<Unit> = try {
+        firestore.collection(TRANSACTIONS_COLLECTION)
+            .document(transaction.id)
+            .set(transaction)
+            .await()
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    override fun getLendingTransactionsForUser(userId: String): Flow<List<RentalTransaction>> = callbackFlow {
+        val queryRef = firestore.collection(TRANSACTIONS_COLLECTION)
+            .whereEqualTo("lenderId", userId)
+            .whereIn("status", listOf(
+                RentalStatus.APPROVED.name,
+                RentalStatus.IN_PROGRESS.name,
+                RentalStatus.COMPLETED.name
+            ))
+        
+        val subscription = queryRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                close(error)
+                return@addSnapshotListener
+            }
+            
+            val transactions = snapshot?.documents?.mapNotNull { 
+                it.toObject(RentalTransaction::class.java)
+            } ?: emptyList()
+            
+            trySend(transactions)
         }
         awaitClose { subscription.remove() }
     }

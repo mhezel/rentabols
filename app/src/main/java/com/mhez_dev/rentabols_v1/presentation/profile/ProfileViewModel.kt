@@ -72,6 +72,7 @@ class ProfileViewModel(
     
     fun updateProfile(
         name: String,
+        fullName: String? = null,
         phoneNumber: String,
         location: String,
         gender: String,
@@ -84,6 +85,7 @@ class ProfileViewModel(
             
             val updatedUser = currentUser.copy(
                 name = name,
+                fullName = fullName,
                 phoneNumber = phoneNumber,
                 location = location,
                 gender = gender,

@@ -16,8 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -28,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +44,10 @@ fun OnboardingScreen(
     onSkipClicked: () -> Unit,
     onGetStartedClicked: () -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val screenHeight = configuration.screenHeightDp.dp
+    val imageHeight = screenHeight * 0.4f
+    
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -55,17 +58,17 @@ fun OnboardingScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Skip button at the top-right
-            if (pageIndex < pageCount - 1) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
+            // Top section with skip button
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+            ) {
+                if (pageIndex < pageCount - 1) {
                     OutlinedButton(
                         onClick = onSkipClicked,
                         modifier = Modifier.align(Alignment.TopEnd),
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
                             "Skip",
@@ -75,63 +78,56 @@ fun OnboardingScreen(
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // Image card with shadow and rounded corners
-            Card(
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Image container with proper sizing
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(320.dp)
-                    .padding(8.dp),
-                shape = RoundedCornerShape(24.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    .height(imageHeight)
+                    .clip(RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Image(
-                        painter = painterResource(id = imageRes),
-                        contentDescription = title,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.FillBounds
-                    )
-                }
+                Image(
+                    painter = painterResource(id = imageRes),
+                    contentDescription = title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
+                )
             }
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // Title
+            
+            Spacer(modifier = Modifier.height(48.dp))
+            
+            // Title text
             Text(
                 text = title,
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 26.sp
                 ),
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center
             )
-
+            
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Description
+            
+            // Description text
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    lineHeight = 24.sp
-                ),
+                style = MaterialTheme.typography.bodyLarge,
+                color = Color.Gray,
                 textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
-
+            
             Spacer(modifier = Modifier.weight(1f))
-
+            
             // Pagination indicators
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 24.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
                 repeat(pageCount) { index ->
@@ -152,48 +148,25 @@ fun OnboardingScreen(
                     )
                 }
             }
-
-            // Bottom buttons
-            if (pageIndex == pageCount - 1) {
-                // Last page - show Get Started button
-                Button(
-                    onClick = onGetStartedClicked,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        text = "Get Started",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-            } else {
-                // Other pages - show Next button
-                Button(
-                    onClick = onNextClicked,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Text(
-                        text = "Next",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
+            
+            // Button
+            Button(
+                onClick = if (pageIndex == pageCount - 1) onGetStartedClicked else onNextClicked,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text(
+                    text = if (pageIndex == pageCount - 1) "Get Started" else "Next",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    ),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))

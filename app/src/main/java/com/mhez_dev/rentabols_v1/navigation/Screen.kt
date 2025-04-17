@@ -22,4 +22,6 @@ sealed class Screen(val route: String) {
     object FullScreenMap : Screen("full-screen-map/{itemId}") {
         fun createRoute(itemId: String) = "full-screen-map/$itemId"
     }
+    object OfferRequests : Screen("offer_requests")
+    object RentTransactions : Screen("rent_transactions")
 }

@@ -13,6 +13,9 @@ data class User(
     @PropertyName("name")
     val name: String = "",
     
+    @PropertyName("fullName")
+    val fullName: String? = null,
+    
     @PropertyName("phoneNumber")
     val phoneNumber: String? = null,
     

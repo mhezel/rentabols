@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#FFC107</color>
-    <color name="colorPrimaryDark">#d6a000</color>
-    <color name="colorAccent">#FF4081</color>
+    <!-- Primary App Colors -->
+    <color name="colorPrimary">#278783</color>
+    <color name="colorPrimaryDark">#1A6460</color>
+    <color name="colorPrimaryLight">#3A9A96</color>
+    <color name="colorAccent">#4BBBB7</color>
 
+    <!-- Secondary App Colors -->
+    <color name="colorSecondary">#FFEBD0</color>
+    <color name="colorSecondaryDark">#E6D4BC</color>
+    <color name="colorSecondaryLight">#FFF5E4</color>
+
+    <!-- Base Colors -->
     <color name="whitePure">#ffffff</color>
-    <color name="white">#00ffffff</color>
+    <color name="white">#F9F9F9</color>
+    <color name="black">#202020</color>
 
-    <color name="black">#000000</color>
-
+    <!-- Utility Colors -->
     <color name="grayColor">#c2c2c2</color>
     <color name="dark_grayColor">#615f5f</color>
     <color name="green_accept">#2dd906</color>

@@ -50,19 +50,7 @@ fun OnboardingPager(
         ) { pageIndex ->
             val page = pages[pageIndex]
             
-            AnimatedVisibility(
-                visible = true,
-                enter = fadeIn(animationSpec = tween(600)) +
-                        slideInHorizontally(
-                            initialOffsetX = { it },
-                            animationSpec = tween(600)
-                        ),
-                exit = fadeOut(animationSpec = tween(600)) +
-                        slideOutHorizontally(
-                            targetOffsetX = { -it },
-                            animationSpec = tween(600)
-                        )
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
                 OnboardingScreen(
                     title = page.title,
                     description = page.description,
@@ -71,11 +59,15 @@ fun OnboardingPager(
                     pageCount = pages.size,
                     onNextClicked = {
                         coroutineScope.launch {
-                            if (pageIndex < pages.size - 1) {
-                                pagerState.animateScrollToPage(
-                                    pageIndex + 1,
-                                    animationSpec = tween(600)
-                                )
+                            try {
+                                if (pageIndex < pages.size - 1) {
+                                    pagerState.animateScrollToPage(
+                                        pageIndex + 1,
+                                        animationSpec = tween(600)
+                                    )
+                                }
+                            } catch (e: Exception) {
+                                // Handle exception gracefully
                             }
                         }
                     },

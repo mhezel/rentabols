@@ -3,15 +3,19 @@ package com.mhez_dev.rentabols_v1.presentation.items
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.storage.FirebaseStorage
 import com.mhez_dev.rentabols_v1.domain.model.RentalItem
 import com.mhez_dev.rentabols_v1.domain.model.RentalStatus
 import com.mhez_dev.rentabols_v1.domain.model.RentalTransaction
+import com.mhez_dev.rentabols_v1.domain.model.User
 import com.mhez_dev.rentabols_v1.domain.repository.RentalRepository
+import com.mhez_dev.rentabols_v1.domain.usecase.auth.GetCurrentUserUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.auth.GetUserByIdUseCase
 import com.mhez_dev.rentabols_v1.domain.usecase.rental.CreateRentalRequestUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -31,7 +35,9 @@ sealed class ItemDetailsState {
 class ItemDetailsViewModel(
     private val createRentalRequestUseCase: CreateRentalRequestUseCase,
     private val rentalRepository: RentalRepository,
-    private val getUserByIdUseCase: GetUserByIdUseCase
+    private val getUserByIdUseCase: GetUserByIdUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<ItemDetailsState>(ItemDetailsState.Loading)
@@ -76,27 +82,79 @@ class ItemDetailsViewModel(
         }
     }
 
-    fun createRentalRequest(renterId: String, startDate: Long, endDate: Long) {
+    fun createRentalRequest(
+        startDate: Long, 
+        endDate: Long,
+        offerPrice: Double? = null,
+        deliveryOption: String? = null,
+        message: String? = null
+    ) {
         if (startDate >= endDate) {
             _requestState.value = RentalRequestState.Error("End date must be after start date")
             return
         }
 
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            _requestState.value = RentalRequestState.Error("You must be logged in to make a request")
+            return
+        }
+
         _requestState.value = RentalRequestState.Loading
         val item = _item.value ?: return
+        
+        // Prevent users from renting their own items
+        if (currentUser.uid == item.ownerId) {
+            _requestState.value = RentalRequestState.Error("You cannot rent your own item")
+            return
+        }
 
         viewModelScope.launch {
+            // Get full user profile to ensure we have the name
+            val currentUserProfile = try {
+                getCurrentUserUseCase().first()
+            } catch (e: Exception) {
+                null
+            }
+            
+            // Calculate the price based on offer price or item's standard price
+            val pricePerDay = offerPrice ?: item.pricePerDay
+            val totalPrice = calculateTotalPrice(pricePerDay, startDate, endDate)
+            
+            // Create metadata map for additional info
+            val metadata = mutableMapOf<String, Any>()
+            if (deliveryOption != null) {
+                metadata["deliveryOption"] = deliveryOption
+            }
+            if (message != null && message.isNotBlank()) {
+                metadata["message"] = message
+            }
+            if (offerPrice != null) {
+                metadata["isOffer"] = true
+                metadata["offerPricePerDay"] = offerPrice
+                metadata["standardPricePerDay"] = item.pricePerDay
+            }
+            
+            // Include renter name in metadata
+            val renterName = currentUserProfile?.name ?: currentUser.displayName ?: "Unknown User"
+            metadata["renterName"] = renterName
+            
+            // Include item details
+            metadata["itemName"] = item.title
+            
             val transaction = RentalTransaction(
                 itemId = item.id,
                 lenderId = item.ownerId,
-                renterId = renterId,
+                renterId = currentUser.uid,
                 startDate = startDate,
                 endDate = endDate,
-                totalPrice = calculateTotalPrice(item.pricePerDay, startDate, endDate),
-                status = RentalStatus.PENDING
+                totalPrice = totalPrice,
+                status = RentalStatus.PENDING,
+                metadata = metadata
             )
 
             val result = createRentalRequestUseCase(transaction)
+            
             _requestState.value = if (result.isSuccess) {
                 RentalRequestState.Success
             } else {

@@ -20,8 +20,10 @@ import com.mhez_dev.rentabols_v1.presentation.map.FullScreenMapScreen
 import com.mhez_dev.rentabols_v1.presentation.onboarding.OnboardingScreen
 import com.mhez_dev.rentabols_v1.presentation.profile.EditProfileScreen
 import com.mhez_dev.rentabols_v1.presentation.profile.ProfileScreen
+import com.mhez_dev.rentabols_v1.presentation.profile.RentTransactionsScreen
 import com.mhez_dev.rentabols_v1.presentation.splash.SplashScreen
 import com.mhez_dev.rentabols_v1.presentation.profile.UserProfileScreen
+import com.mhez_dev.rentabols_v1.presentation.offers.OfferRequestsScreen
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -41,9 +43,13 @@ fun RentabolsNavigation(
         composable(Screen.Splash.route) {
             SplashScreen(
                 onSplashComplete = {
-                    navController.navigate(Screen.Onboarding.route) {
-                        popUpTo(Screen.Splash.route) { inclusive = true }
-                        launchSingleTop = true
+                    try {
+                        navController.navigate(Screen.Onboarding.route) {
+                            popUpTo(Screen.Splash.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } catch (e: Exception) {
+                        // Handle navigation exception
                     }
                 }
             )
@@ -52,9 +58,14 @@ fun RentabolsNavigation(
         composable(Screen.Onboarding.route) {
             OnboardingScreen(
                 onFinished = {
-                    navController.navigate(Screen.Auth.route) {
-                        popUpTo(Screen.Onboarding.route) { inclusive = true }
-                        launchSingleTop = true
+                    try {
+                        // Always navigate to Auth screen after onboarding
+                        navController.navigate(Screen.Auth.route) {
+                            popUpTo(Screen.Onboarding.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } catch (e: Exception) {
+                        // Handle navigation exception
                     }
                 },
                 viewModel = koinViewModel()
@@ -64,9 +75,13 @@ fun RentabolsNavigation(
         composable(Screen.Auth.route) {
             AuthScreen(
                 onNavigateToHome = {
-                    navController.navigate(Screen.Home.route) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
+                    try {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } catch (e: Exception) {
+                        // Handle navigation exception
                     }
                 }
             )
@@ -89,13 +104,7 @@ fun RentabolsNavigation(
                 onNavigateToItems = {
                     navController.navigate(Screen.Items.route)
                 },
-                currentRoute = currentRoute,
-                onSignOut = {
-                    navController.navigate(Screen.Auth.route) {
-                        popUpTo(0) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                }
+                currentRoute = currentRoute
             )
         }
 
@@ -167,8 +176,17 @@ fun RentabolsNavigation(
         composable(Screen.Profile.route) {
             ProfileScreen(
                 onNavigateToHome = {
-                    navController.navigate(Screen.Home.route) {
-                        launchSingleTop = true
+                    try {
+                        // When signing out, navigate directly to Auth screen 
+                        // with clearing back stack to prevent going back to authenticated screens
+                        navController.navigate(Screen.Auth.route) {
+                            // Clear entire back stack so user can't go back to authenticated screens
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    } catch (e: Exception) {
+                        // If primary navigation fails, try simpler approach
+                        navController.navigate(Screen.Auth.route)
                     }
                 },
                 onNavigateToItems = {
@@ -179,6 +197,12 @@ fun RentabolsNavigation(
                 },
                 onNavigateToEditProfile = {
                     navController.navigate(Screen.EditProfile.route)
+                },
+                onNavigateToOfferRequests = {
+                    navController.navigate(Screen.OfferRequests.route)
+                },
+                onNavigateToRentTransactions = {
+                    navController.navigate(Screen.RentTransactions.route)
                 },
                 currentRoute = currentRoute
             )
@@ -253,6 +277,25 @@ fun RentabolsNavigation(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
+            )
+        }
+
+        composable(route = Screen.OfferRequests.route) {
+            OfferRequestsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToHome = { navController.navigate(Screen.Home.route) { popUpTo(Screen.Profile.route) } },
+                onNavigateToItems = { navController.navigate(Screen.Items.route) { popUpTo(Screen.Profile.route) } },
+                onNavigateToMap = { navController.navigate(Screen.Map.route) { popUpTo(Screen.Profile.route) } },
+                onNavigateToProfile = { navController.navigate(Screen.Profile.route) { popUpTo(Screen.Profile.route) { inclusive = true } } },
+                currentRoute = currentRoute,
+                viewModel = koinViewModel()
+            )
+        }
+        
+        composable(Screen.RentTransactions.route) {
+            RentTransactionsScreen(
+                viewModel = koinViewModel(),
+                onBackClick = { navController.popBackStack() }
             )
         }
     }

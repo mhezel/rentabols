@@ -13,6 +13,7 @@ interface RentalRepository {
     suspend fun updateItem(item: RentalItem): Result<Unit>
     suspend fun deleteItem(itemId: String): Result<Unit>
     fun getItem(itemId: String): Flow<RentalItem?>
+    suspend fun getItemById(itemId: String): RentalItem?
     fun searchItems(query: String?, category: String?, location: GeoPoint?, radius: Double?): Flow<List<RentalItem>>
     fun getItems(searchQuery: String?, category: String?): Flow<List<RentalItem>>
     fun getItemsByOwnerId(ownerId: String): Flow<List<RentalItem>>
@@ -20,8 +21,10 @@ interface RentalRepository {
     // Transaction Management
     suspend fun createRentalRequest(transaction: RentalTransaction): Result<String>
     suspend fun updateTransactionStatus(transactionId: String, status: RentalStatus): Result<Unit>
+    suspend fun updateTransaction(transaction: RentalTransaction): Result<Unit>
     fun getLenderTransactions(userId: String): Flow<List<RentalTransaction>>
     fun getRenterTransactions(userId: String): Flow<List<RentalTransaction>>
+    fun getLendingTransactionsForUser(userId: String): Flow<List<RentalTransaction>>
     
     // Reviews and Ratings
     suspend fun addReview(userId: String, rating: Double, review: String): Result<Unit>

@@ -1,5 +1,6 @@
 package com.mhez_dev.rentabols_v1.presentation.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -10,7 +11,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mhez_dev.rentabols_v1.R
 import com.mhez_dev.rentabols_v1.domain.model.RentalItem
 import com.mhez_dev.rentabols_v1.ui.components.CategoryDropdown
 import com.mhez_dev.rentabols_v1.ui.components.ItemCategory
@@ -27,7 +33,7 @@ fun HomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToItems: () -> Unit,
     currentRoute: String,
-    onSignOut: () -> Unit,
+    onSignOut: () -> Unit = {},
     viewModel: HomeViewModel = koinViewModel()
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -37,19 +43,42 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Rentabols") },
-                actions = {
-                    IconButton(onClick = onSignOut) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Sign Out")
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_rentabols),
+                            contentDescription = "Rentabols Logo",
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .height(36.dp)
+                                .padding(end = 8.dp)
+                        )
+                        Text(
+                            text = "Rentabols",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 24.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             )
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onNavigateToAddItem
+                onClick = onNavigateToAddItem,
+                containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Add Item")
+                Icon(
+                    Icons.Default.Add, 
+                    contentDescription = "Add Item",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
             }
         },
         bottomBar = {
@@ -96,7 +125,13 @@ fun HomeScreen(
                         }
                     }
                 },
-                singleLine = true
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                )
             )
             
             // Category Filter
@@ -123,7 +158,10 @@ fun HomeScreen(
                             searchQuery = ""
                             viewModel.clearFilters()
                         },
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        )
                     ) {
                         Text("Clear Filters")
                     }
@@ -136,7 +174,11 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No items found")
+                    Text(
+                        "No items found",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
                 LazyVerticalGrid(
