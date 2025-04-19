@@ -228,6 +228,16 @@ class FirebaseRentalRepository(
         Result.failure(e)
     }
 
+    override suspend fun getTransaction(transactionId: String): RentalTransaction? = try {
+        val snapshot = firestore.collection(TRANSACTIONS_COLLECTION)
+            .document(transactionId)
+            .get()
+            .await()
+        snapshot.toObject(RentalTransaction::class.java)
+    } catch (e: Exception) {
+        null
+    }
+
     override fun getLendingTransactionsForUser(userId: String): Flow<List<RentalTransaction>> = callbackFlow {
         val queryRef = firestore.collection(TRANSACTIONS_COLLECTION)
             .whereEqualTo("lenderId", userId)

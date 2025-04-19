@@ -22,6 +22,7 @@ interface RentalRepository {
     suspend fun createRentalRequest(transaction: RentalTransaction): Result<String>
     suspend fun updateTransactionStatus(transactionId: String, status: RentalStatus): Result<Unit>
     suspend fun updateTransaction(transaction: RentalTransaction): Result<Unit>
+    suspend fun getTransaction(transactionId: String): RentalTransaction?
     fun getLenderTransactions(userId: String): Flow<List<RentalTransaction>>
     fun getRenterTransactions(userId: String): Flow<List<RentalTransaction>>
     fun getLendingTransactionsForUser(userId: String): Flow<List<RentalTransaction>>

@@ -31,6 +31,12 @@ data class RentalTransaction(
     @PropertyName("createdAt")
     val createdAt: Long = System.currentTimeMillis(),
     
+    @PropertyName("paymentMethod")
+    val paymentMethod: String? = null,
+    
+    @PropertyName("deliveryOption")
+    val deliveryOption: String? = null,
+    
     @PropertyName("metadata")
     val metadata: Map<String, Any> = emptyMap()
 )

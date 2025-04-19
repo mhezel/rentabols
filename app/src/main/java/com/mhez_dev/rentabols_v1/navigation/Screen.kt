@@ -24,4 +24,8 @@ sealed class Screen(val route: String) {
     }
     object OfferRequests : Screen("offer_requests")
     object RentTransactions : Screen("rent_transactions")
+    object MyRentItems : Screen("my_rent_items")
+    object PaymentMethod : Screen("payment/{transactionId}") {
+        fun createRoute(transactionId: String) = "payment/$transactionId"
+    }
 }

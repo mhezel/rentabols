@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -77,10 +78,17 @@ fun ItemDetailsScreen(
     var offerDeliveryOption by remember { mutableStateOf<String?>(null) }
     var showOfferSummary by remember { mutableStateOf(false) }
     var offerMessage by remember { mutableStateOf("") }
+    var offerPrice by remember { mutableStateOf<Double?>(null) }
+    var showOfferPriceDialog by remember { mutableStateOf(false) }
     
     // Contact seller dialog
     var showContactDialog by remember { mutableStateOf(false) }
     var contactMessage by remember { mutableStateOf("") }
+    
+    // Payment method 
+    var selectedPaymentMethod by remember { mutableStateOf("CASH_ON_PICKUP") }
+    var selectedDeliveryOption by remember { mutableStateOf("Pickup") }
+    var showPaymentMethodDialog by remember { mutableStateOf(false) }
     
     // Add camera position state for the mini-map
     val itemLocation = item?.location?.let { 
@@ -660,24 +668,131 @@ fun ItemDetailsScreen(
     if (showContactDialog) {
         AlertDialog(
             onDismissRequest = { showContactDialog = false },
-            title = { Text("Contact ${ownerName ?: "Seller"}") },
+            title = { Text("Rent this Item") },
             text = {
-                Column {
-                    Text("Send a rental request to the seller for this item.")
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Rental period selection
-                    Text(
-                        text = "Select Rental Period",
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                ) {
+                    // Price info with offer option
+                    val displayPrice = offerPrice ?: item?.pricePerDay
                     
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Price per day: ₱${String.format("%.2f", displayPrice)}",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        
+                        TextButton(onClick = { showOfferPriceDialog = true }) {
+                            Text(if (offerPrice != null) "Change Offer" else "Make Offer")
+                        }
+                    }
+                    
+                    if (offerPrice != null) {
+                        Text(
+                            "Original price: ₱${String.format("%.2f", item?.pricePerDay)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                        )
+                    }
+                    
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Pickup/Delivery Option
+                    Text("Select pickup or delivery:", style = MaterialTheme.typography.titleSmall)
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .weight(1f)
+                                .selectable(
+                                    selected = selectedDeliveryOption == "Pickup",
+                                    onClick = { selectedDeliveryOption = "Pickup" }
+                                )
+                                .padding(8.dp)
+                        ) {
+                            RadioButton(
+                                selected = selectedDeliveryOption == "Pickup",
+                                onClick = { selectedDeliveryOption = "Pickup" }
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Pickup")
+                        }
+                        
+                        // Only show delivery option if available for this item
+                        val isDeliveryAvailable = item?.metadata?.get("isForDelivery") as? Boolean ?: false
+                        if (isDeliveryAvailable) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .selectable(
+                                        selected = selectedDeliveryOption == "Delivery",
+                                        onClick = { selectedDeliveryOption = "Delivery" }
+                                    )
+                                    .padding(8.dp)
+                            ) {
+                                RadioButton(
+                                    selected = selectedDeliveryOption == "Delivery",
+                                    onClick = { selectedDeliveryOption = "Delivery" }
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Delivery")
+                            }
+                        }
+                    }
+                    
+                    // Payment Method Selection
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Payment Method:", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                when (selectedPaymentMethod) {
+                                    "CASH_ON_PICKUP" -> "Cash on Pickup"
+                                    "E_WALLET" -> "E-Wallet"
+                                    "CREDIT_CARD" -> "Credit Card"
+                                    "DEBIT_CARD" -> "Debit Card"
+                                    else -> "Cash on Pickup"
+                                },
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        
+                        TextButton(onClick = { showPaymentMethodDialog = true }) {
+                            Text("Change")
+                        }
+                    }
+                    
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Date Selection
+                    Text("Select rental period:", style = MaterialTheme.typography.titleSmall)
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Start Date", style = MaterialTheme.typography.bodySmall)
@@ -695,7 +810,7 @@ fun ItemDetailsScreen(
                             }
                         }
                         
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(16.dp))
                         
                         Column(modifier = Modifier.weight(1f)) {
                             Text("End Date", style = MaterialTheme.typography.bodySmall)
@@ -717,7 +832,7 @@ fun ItemDetailsScreen(
                     // Calculate total price if dates are selected
                     if (startDate != null && endDate != null) {
                         val days = ((endDate!! - startDate!!) / (1000 * 60 * 60 * 24)).toInt() + 1
-                        val totalPrice = days * (item?.pricePerDay ?: 0.0)
+                        val totalPrice = days * (displayPrice ?: 0.0)
                         
                         Spacer(modifier = Modifier.height(8.dp))
                         Divider()
@@ -757,7 +872,10 @@ fun ItemDetailsScreen(
                             endDate?.let { end ->
                                 viewModel.createRentalRequest(
                                     startDate = start,
-                                    endDate = end
+                                    endDate = end,
+                                    deliveryOption = selectedDeliveryOption,
+                                    paymentMethod = selectedPaymentMethod,
+                                    message = contactMessage.takeIf { it.isNotBlank() }
                                 )
                                 showContactDialog = false
                             }
@@ -770,6 +888,61 @@ fun ItemDetailsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showContactDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Payment Method Dialog
+    if (showPaymentMethodDialog) {
+        AlertDialog(
+            onDismissRequest = { showPaymentMethodDialog = false },
+            title = { Text("Select Payment Method") },
+            text = {
+                Column {
+                    PaymentMethodRadioOption(
+                        title = "Cash on Pickup",
+                        description = "Pay with cash when you pick up the item",
+                        selected = selectedPaymentMethod == "CASH_ON_PICKUP",
+                        onClick = { selectedPaymentMethod = "CASH_ON_PICKUP" }
+                    )
+                    
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    PaymentMethodRadioOption(
+                        title = "E-Wallet",
+                        description = "Pay using GCash, PayMaya, or other e-wallets",
+                        selected = selectedPaymentMethod == "E_WALLET",
+                        onClick = { selectedPaymentMethod = "E_WALLET" }
+                    )
+                    
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    PaymentMethodRadioOption(
+                        title = "Credit Card",
+                        description = "Pay using your credit card",
+                        selected = selectedPaymentMethod == "CREDIT_CARD",
+                        onClick = { selectedPaymentMethod = "CREDIT_CARD" }
+                    )
+                    
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+                    
+                    PaymentMethodRadioOption(
+                        title = "Debit Card",
+                        description = "Pay using your debit card",
+                        selected = selectedPaymentMethod == "DEBIT_CARD",
+                        onClick = { selectedPaymentMethod = "DEBIT_CARD" }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPaymentMethodDialog = false }) {
+                    Text("Confirm")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPaymentMethodDialog = false }) {
                     Text("Cancel")
                 }
             }
@@ -1236,4 +1409,44 @@ fun ItemDetailsScreen(
 private fun formatDate(timestamp: Long): String {
     val date = Date(timestamp)
     return SimpleDateFormat("MMM dd", Locale.getDefault()).format(date)
+}
+
+@Composable
+fun PaymentMethodRadioOption(
+    title: String,
+    description: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selected,
+                onClick = onClick
+            )
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selected,
+            onClick = onClick
+        )
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        Column {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+            
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }

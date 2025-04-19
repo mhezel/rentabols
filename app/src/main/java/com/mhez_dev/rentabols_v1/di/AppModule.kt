@@ -1,6 +1,7 @@
 package com.mhez_dev.rentabols_v1.di
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
@@ -23,8 +24,11 @@ import com.mhez_dev.rentabols_v1.presentation.items.ItemsViewModel
 import com.mhez_dev.rentabols_v1.presentation.map.MapViewModel
 import com.mhez_dev.rentabols_v1.presentation.offers.OfferRequestsViewModel
 import com.mhez_dev.rentabols_v1.presentation.onboarding.OnboardingViewModel
+import com.mhez_dev.rentabols_v1.presentation.profile.PaymentMethodViewModel
 import com.mhez_dev.rentabols_v1.presentation.profile.ProfileViewModel
 import com.mhez_dev.rentabols_v1.presentation.profile.UserProfileViewModel
+import com.mhez_dev.rentabols_v1.presentation.profile.MyRentItemsViewModel
+import com.mhez_dev.rentabols_v1.presentation.payment.PaymentViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
@@ -71,4 +75,9 @@ val appModule = module {
     viewModel { UserProfileViewModel(get<GetUserByIdUseCase>(), get<RentalRepository>()) }
     viewModel { OfferRequestsViewModel(get<RentalRepository>(), get()) }
     viewModel { com.mhez_dev.rentabols_v1.presentation.profile.RentTransactionsViewModel(get(), get(), get(), get(), get<GetUserByIdUseCase>()) }
+    viewModel { MyRentItemsViewModel(get<GetCurrentUserUseCase>(), get<GetUserTransactionsUseCase>(), get<RentalRepository>(), get<GetUserByIdUseCase>()) }
+    viewModel { PaymentViewModel(get<RentalRepository>()) }
+    viewModel { (transactionId: String) -> PaymentMethodViewModel(SavedStateHandle().apply { 
+        set("transactionId", transactionId)
+    }) }
 }

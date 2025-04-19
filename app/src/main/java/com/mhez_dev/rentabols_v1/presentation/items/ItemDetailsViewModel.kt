@@ -87,6 +87,7 @@ class ItemDetailsViewModel(
         endDate: Long,
         offerPrice: Double? = null,
         deliveryOption: String? = null,
+        paymentMethod: String? = null,
         message: String? = null
     ) {
         if (startDate >= endDate) {
@@ -123,9 +124,6 @@ class ItemDetailsViewModel(
             
             // Create metadata map for additional info
             val metadata = mutableMapOf<String, Any>()
-            if (deliveryOption != null) {
-                metadata["deliveryOption"] = deliveryOption
-            }
             if (message != null && message.isNotBlank()) {
                 metadata["message"] = message
             }
@@ -141,6 +139,9 @@ class ItemDetailsViewModel(
             
             // Include item details
             metadata["itemName"] = item.title
+            if (item.imageUrls.isNotEmpty()) {
+                metadata["itemImageUrl"] = item.imageUrls.first()
+            }
             
             val transaction = RentalTransaction(
                 itemId = item.id,
@@ -150,6 +151,8 @@ class ItemDetailsViewModel(
                 endDate = endDate,
                 totalPrice = totalPrice,
                 status = RentalStatus.PENDING,
+                paymentMethod = paymentMethod,
+                deliveryOption = deliveryOption,
                 metadata = metadata
             )
 

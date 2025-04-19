@@ -9,9 +9,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -281,6 +286,64 @@ fun TransactionCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Payment method (if available)
+                    val paymentMethod = transaction.paymentMethod ?: transaction.metadata["paymentMethod"] as? String
+                    if (paymentMethod != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = when (paymentMethod) {
+                                    "CASH_ON_PICKUP" -> Icons.Default.Payments
+                                    "E_WALLET" -> Icons.Default.AccountBalance
+                                    "CREDIT_CARD", "DEBIT_CARD" -> Icons.Default.CreditCard
+                                    else -> Icons.Default.Payments
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = when (paymentMethod) {
+                                    "CASH_ON_PICKUP" -> "Cash on Pickup"
+                                    "E_WALLET" -> "E-Wallet"
+                                    "CREDIT_CARD" -> "Credit Card"
+                                    "DEBIT_CARD" -> "Debit Card"
+                                    else -> paymentMethod
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    
+                    // Delivery option (if available)
+                    val deliveryOption = transaction.deliveryOption ?: transaction.metadata["deliveryOption"] as? String
+                    if (deliveryOption != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (deliveryOption == "Delivery") 
+                                                Icons.Default.LocalShipping 
+                                             else 
+                                                Icons.Default.Store,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = deliveryOption,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                     
                     // Status badge
                     Row(

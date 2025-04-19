@@ -24,6 +24,8 @@ import com.mhez_dev.rentabols_v1.presentation.profile.RentTransactionsScreen
 import com.mhez_dev.rentabols_v1.presentation.splash.SplashScreen
 import com.mhez_dev.rentabols_v1.presentation.profile.UserProfileScreen
 import com.mhez_dev.rentabols_v1.presentation.offers.OfferRequestsScreen
+import com.mhez_dev.rentabols_v1.presentation.profile.MyRentItemsScreen
+import com.mhez_dev.rentabols_v1.presentation.profile.PaymentMethodScreen
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -204,6 +206,9 @@ fun RentabolsNavigation(
                 onNavigateToRentTransactions = {
                     navController.navigate(Screen.RentTransactions.route)
                 },
+                onNavigateToMyRentItems = {
+                    navController.navigate(Screen.MyRentItems.route)
+                },
                 currentRoute = currentRoute
             )
         }
@@ -296,6 +301,37 @@ fun RentabolsNavigation(
             RentTransactionsScreen(
                 viewModel = koinViewModel(),
                 onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.MyRentItems.route) {
+            MyRentItemsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToItemDetails = { itemId ->
+                    navController.navigate(Screen.ItemDetails.createRoute(itemId))
+                },
+                onNavigateToPayment = { transactionId ->
+                    navController.navigate(Screen.PaymentMethod.createRoute(transactionId))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.PaymentMethod.route,
+            arguments = listOf(
+                navArgument("transactionId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val transactionId = backStackEntry.arguments?.getString("transactionId") ?: ""
+            PaymentMethodScreen(
+                transactionId = transactionId,
+                onBackClick = {
+                    navController.popBackStack()
+                }
             )
         }
     }

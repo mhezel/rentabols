@@ -9,16 +9,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import com.mhez_dev.rentabols_v1.domain.model.RentalStatus
 import com.mhez_dev.rentabols_v1.ui.components.RentabolsBottomNavigation
@@ -35,6 +38,7 @@ fun ProfileScreen(
     onNavigateToEditProfile: () -> Unit,
     onNavigateToOfferRequests: () -> Unit,
     onNavigateToRentTransactions: () -> Unit,
+    onNavigateToMyRentItems: () -> Unit,
     currentRoute: String,
     viewModel: ProfileViewModel = koinViewModel()
 ) {
@@ -52,17 +56,28 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Profile") },
+                title = { Text("My Profile", fontWeight = FontWeight.Medium) },
                 actions = {
                     IconButton(onClick = onNavigateToEditProfile) {
-                        Icon(Icons.Default.Edit, contentDescription = "Edit Profile")
+                        Icon(
+                            imageVector = Icons.Default.Edit, 
+                            contentDescription = "Edit Profile",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
                     IconButton(
                         onClick = { viewModel.signOut() }
                     ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = "Sign Out")
+                        Icon(
+                            imageVector = Icons.Default.ExitToApp, 
+                            contentDescription = "Sign Out",
+                            tint = MaterialTheme.colorScheme.error
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
         bottomBar = {
@@ -99,76 +114,96 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
-            // Simple profile header with circular avatar and name/email
+            // Profile header with circular avatar and name/email
             item {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Profile picture
-                    Box(
-                        modifier = Modifier.padding(bottom = 16.dp),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        SubcomposeAsyncImage(
-                            model = state.user?.profileImageUrl,
-                            contentDescription = "Profile Picture",
-                            modifier = Modifier
-                                .size(80.dp)
-                                .clip(CircleShape),
-                            contentScale = ContentScale.Crop,
-                            loading = {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(40.dp),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                            },
-                            error = {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = null,
+                        // Profile picture with edit overlay
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
+                            SubcomposeAsyncImage(
+                                model = state.user?.profileImageUrl,
+                                contentDescription = "Profile Picture",
+                                modifier = Modifier
+                                    .size(100.dp)
+                                    .clip(CircleShape)
+                                    .border(3.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                                contentScale = ContentScale.Crop,
+                                loading = {
+                                    CircularProgressIndicator(
                                         modifier = Modifier.size(40.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.primary
                                     )
+                                },
+                                error = {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(50.dp),
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
                                 }
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        // User's name and email
+                        state.user?.name?.let { name ->
+                            if (name.isNotBlank()) {
+                                Text(
+                                    text = name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
                             }
+                        }
+                        
+                        Text(
+                            text = state.user?.email ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-
-                    // User's email only
-                    Text(
-                        text = state.user?.email ?: "",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
             
-            // Personal Information Section
+            // Personal Information Section with modern card design
             item {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
+                    elevation = CardDefaults.cardElevation(
+                        defaultElevation = 2.dp
                     )
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(24.dp)
+                            .padding(20.dp)
                     ) {
                         Text(
                             text = "Personal Information",
@@ -180,167 +215,169 @@ fun ProfileScreen(
                         // Phone number
                         state.user?.phoneNumber?.let { phone ->
                             if (phone.isNotBlank()) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Phone,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text(
-                                        text = phone,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
+                                InfoRow(
+                                    icon = Icons.Default.Phone,
+                                    text = phone
+                                )
                             }
                         }
                         
                         // Location
                         state.user?.location?.let { location ->
                             if (location.isNotBlank()) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text(
-                                        text = location,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
+                                InfoRow(
+                                    icon = Icons.Default.LocationOn,
+                                    text = location
+                                )
                             }
                         }
                         
                         // Gender
                         state.user?.gender?.let { gender ->
                             if (gender.isNotBlank()) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Text(
-                                        text = gender,
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
+                                InfoRow(
+                                    icon = Icons.Default.Person,
+                                    text = gender
+                                )
                             }
                         }
                         
                         // Birthdate
                         state.user?.birthdate?.let { birthdate ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(vertical = 12.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.DateRange,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Text(
-                                    text = SimpleDateFormat(
-                                        "MMM dd, yyyy", 
-                                        Locale.getDefault()
-                                    ).format(Date(birthdate)),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
+                            InfoRow(
+                                icon = Icons.Default.DateRange,
+                                text = SimpleDateFormat(
+                                    "MMMM dd, yyyy", 
+                                    Locale.getDefault()
+                                ).format(Date(birthdate))
+                            )
                         }
                     }
                 }
             }
 
-            // Action buttons
+            // Action buttons in row layout (3 buttons)
             item {
-                // // Edit Profile Button
-                // ElevatedButton(
-                //     onClick = onNavigateToEditProfile,
-                //     modifier = Modifier
-                //         .fillMaxWidth()
-                //         .padding(vertical = 8.dp)
-                //         .height(56.dp),
-                //     colors = ButtonDefaults.elevatedButtonColors(
-                //         containerColor = MaterialTheme.colorScheme.primary
-                //     )
-                // ) {
-                //     Icon(
-                //         imageVector = Icons.Default.Edit,
-                //         contentDescription = null
-                //     )
-                //     Spacer(modifier = Modifier.width(8.dp))
-                //     Text(
-                //         text = "Edit Profile",
-                //         style = MaterialTheme.typography.bodyLarge
-                //     )
-                // }
+                Text(
+                    text = "Quick Actions",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
                 
-                // View Offer Requests Button
-                OutlinedButton(
-                    onClick = onNavigateToOfferRequests,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .height(56.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Inbox,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+                    // Offers Button
+                    ActionButton(
+                        icon = Icons.Default.Inbox,
+                        label = "Offers",
+                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f),
+                        onClick = onNavigateToOfferRequests
                     )
+                    
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "View Offer Requests",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.primary
+                    
+                    // Lending Button
+                    ActionButton(
+                        icon = Icons.Default.LocalShipping,
+                        label = "Lending",
+                        backgroundColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.weight(1f),
+                        onClick = onNavigateToRentTransactions
                     )
-                }
-                
-                // My Rent Transactions Button
-                OutlinedButton(
-                    onClick = onNavigateToRentTransactions,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp)
-                        .height(56.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocalShipping,
-                        contentDescription = null,
-                        tint = Color.White
-                    )
+                    
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "My Items to Lend",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = Color.White
+                    
+                    // Renting Button
+                    ActionButton(
+                        icon = Icons.Default.AddShoppingCart,
+                        label = "Renting",
+                        backgroundColor = MaterialTheme.colorScheme.secondary,
+                        contentColor = MaterialTheme.colorScheme.onSecondary,
+                        modifier = Modifier.weight(1f),
+                        onClick = onNavigateToMyRentItems
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun InfoRow(
+    icon: ImageVector,
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(vertical = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+}
+
+@Composable
+fun ActionButton(
+    icon: ImageVector,
+    label: String,
+    backgroundColor: Color,
+    contentColor: Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(100.dp),
+        contentPadding = PaddingValues(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = backgroundColor,
+            contentColor = contentColor
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 2.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = label,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp
+            )
         }
     }
 }

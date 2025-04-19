@@ -301,4 +301,14 @@ class FirestoreRentalRepository(
             close(e)
         }
     }
+
+    override suspend fun getTransaction(transactionId: String): RentalTransaction? = try {
+        val snapshot = firestore.collection("rental_transactions")
+            .document(transactionId)
+            .get()
+            .await()
+        snapshot.toObject(RentalTransaction::class.java)?.copy(id = snapshot.id)
+    } catch (e: Exception) {
+        null
+    }
 }
